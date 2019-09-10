@@ -39,3 +39,7 @@ output : matrix
 **methods for sampling** :
 
 **sample(env)** method which is used to get samples from the generator
+
+## Intersting links
+
+
