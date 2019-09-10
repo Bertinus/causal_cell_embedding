@@ -2,6 +2,9 @@
 
 ## TODO
 
+Keep working on the ideas : 
+Define different experiments we could make
+
 ### Explore the L1000 API
 
 https://github.com/dhimmel/lincs/tree/abcb12f942f93e3ee839e5e3593f930df2c56845
@@ -32,13 +35,14 @@ continuous case : we define the functions that will output the value of latent v
 **input** : number of latent variables, number of genes, some distribution over edges
 **Output** : a binary matrix of size (number of latent variables, number of genes) which encodes which edges exist
 
-**build_env()**
+**build_env()** TODO
 input : number of environments
 output : matrix
 
 **methods for sampling** :
 
-**sample(env)** method which is used to get samples from the generator
+**sample(env)** TODO
+method which is used to get samples from the generator
 
 ## Intersting links
 
