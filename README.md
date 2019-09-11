@@ -2,6 +2,10 @@
 
 ## TODO
 
+Add a diagram to the paper
+Read papers and add summaries to the git repo (as md files) in the folder Papers
+Investigate datasets
+
 Keep working on the ideas : 
 Define different experiments we could make
 
