@@ -46,4 +46,6 @@ method which is used to get samples from the generator
 
 ## Intersting links
 
-python library for single cell data analysis https://scanpy.readthedocs.io/en/stable/
+- python library for single cell data analysis https://scanpy.readthedocs.io/en/stable/
+- task scheduler https://trello.com/en
+- analysis toolkit for LINCS L1000 https://github.com/dhimmel/lincs/tree/abcb12f942f93e3ee839e5e3593f930df2c56845
