@@ -10,10 +10,10 @@ Define different experiments we could make
 
 ### Datasets
 
--```Mambo``` - a framework to synthesize data from various data sources in order to construct and represent multimodal networks
+- ```Mambo``` - a framework to synthesize data from various data sources in order to construct and represent multimodal networks
  [Link](http://snap.stanford.edu/mambo/#tutorial).
 
--``` Stanford Biomedical Network Dataset Collection ``` [Link](http://snap.stanford.edu/biodata/index.html)
+- ``` Stanford Biomedical Network Dataset Collection ``` [Link](http://snap.stanford.edu/biodata/index.html)
 
 ### Explore the L1000 API
 
