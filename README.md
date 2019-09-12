@@ -1,5 +1,10 @@
 # causal_gene_embedding
 
+To use the spec file to create an identical **conda environment** on your machine:
+'''
+conda create --name causalcell --file spec-file.txt
+'''
+
 ## TODO
 
 Add a diagram to the paper
