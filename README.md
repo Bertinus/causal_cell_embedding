@@ -5,9 +5,16 @@
 Add a diagram to the paper
 Read papers and add summaries to the git repo (as md files) in the folder Papers
 Investigate datasets
-
 Keep working on the ideas : 
 Define different experiments we could make
+
+### Datasets
+
+```Mambo - a framework to synthesize data from various data sources in order to construct and represent multimodal networks``` 
+ [Mambo-Link](http://snap.stanford.edu/mambo/#tutorial).
+
+``` Stanford Biomedical Network Dataset Collection ``` 
+[Datasets-Link](http://snap.stanford.edu/biodata/index.html)
 
 ### Explore the L1000 API
 
