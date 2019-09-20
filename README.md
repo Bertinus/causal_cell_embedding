@@ -70,6 +70,7 @@ method which is used to get samples from the generator
 - Course ML for healthcare https://mlhc19mit.github.io/
 - jupyter notebooks for RNAseq https://amp.pharm.mssm.edu/biojupies/
 - pytorch metalearning library https://github.com/tristandeleu/pytorch-meta
+- Depmap https://depmap.org/portal/achilles/
 
 ## People to talk to for this project
 - Fabian Theis and his student David Fischer
