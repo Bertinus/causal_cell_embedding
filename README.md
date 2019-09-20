@@ -69,8 +69,10 @@ method which is used to get samples from the generator
 - Fabian Theis https://www.helmholtz-muenchen.de/icb/institute/staff/staff/ma/2494/Prof.%20Dr.%20Dr.-Theis/index.html
 - Course ML for healthcare https://mlhc19mit.github.io/
 - jupyter notebooks for RNAseq https://amp.pharm.mssm.edu/biojupies/
+- pytorch metalearning library https://github.com/tristandeleu/pytorch-meta
 
 ## People to talk to for this project
 - Fabian Theis and his student David Fischer
 - David Gifford
+- Alan Aspuru Guzik
 
