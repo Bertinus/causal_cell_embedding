@@ -68,6 +68,7 @@ method which is used to get samples from the generator
 - collaboration ? https://mhi-omics.org/people/julie-hussin/
 - Fabian Theis https://www.helmholtz-muenchen.de/icb/institute/staff/staff/ma/2494/Prof.%20Dr.%20Dr.-Theis/index.html
 - Course ML for healthcare https://mlhc19mit.github.io/
+- jupyter notebooks for RNAseq https://amp.pharm.mssm.edu/biojupies/
 
 ## People to talk to for this project
 - Fabian Theis and his student David Fischer
