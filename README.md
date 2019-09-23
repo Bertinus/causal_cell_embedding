@@ -71,6 +71,8 @@ method which is used to get samples from the generator
 - jupyter notebooks for RNAseq https://amp.pharm.mssm.edu/biojupies/
 - pytorch metalearning library https://github.com/tristandeleu/pytorch-meta
 - Depmap https://depmap.org/portal/achilles/
+- Genome Research [International journal that publishes studies on genomes](https://genome.cshlp.org/site/misc/about.xhtml).
+- How to analyze *any* single-cell RNA-seq dataset *without a computer* [Paper](https://www.biorxiv.org/content/10.1101/673285v2)[Demo](https://colab.research.google.com/github/BUStools/getting_started/blob/master/google_colab_kallisto_bustools.ipynb)
 
 ## People to talk to for this project
 - Fabian Theis and his student David Fischer
