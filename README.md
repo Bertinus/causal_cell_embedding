@@ -78,4 +78,6 @@ method which is used to get samples from the generator
 - Fabian Theis and his student David Fischer
 - David Gifford
 - Alan Aspuru Guzik
+- Dana Pe'er
+- Christina Leslie
 
