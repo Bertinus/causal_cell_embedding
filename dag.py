@@ -1,34 +1,8 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import random
-from structural_functions import Max, Linear
-
-
-class StructuralEquation:
-    """
-    Object that represents a given structural equation. Structural equations are used to compute the value of a node
-    given its predecessors. One can pass the function used to compute the value of the target node. This function can
-    be stochastic.
-    """
-    def __init__(self, dag, index, function=Max, **kwargs):
-        """
-        :param dag: directed acyclic graph as a nxgraph object
-        :param index: index of the target node
-        """
-        self.dag = dag
-        self.target = index
-        self.function = function(**kwargs)
-
-    def __str__(self):
-        return str(self.function)
-
-    def __repr__(self):
-        return str(self.function)
-
-    def generate(self):
-        inputs = [self.dag.node[i]['value'] for i in self.dag.predecessors(self.target)]
-        edge_weights = [n[2]["weight"] for n in self.dag.in_edges(nbunch=self.target, data=True)]
-        self.dag.node[self.target]['value'] = self.function.compute(inputs=inputs, edge_weights=edge_weights)
+import numpy as np
+from structural_functions import StructuralEquation, Max, Linear, NoisyLinear
 
 
 class DirectedAcyclicGraph:
@@ -39,22 +13,27 @@ class DirectedAcyclicGraph:
 
     def __init__(self, n_nodes,
                  directed_graph_generator=lambda x: nx.gn_graph(x, seed=0).reverse(copy=False),
-                 function=Max, **kwargs):
+                 function=Max,
+                 edge_weight_sampler=lambda x: np.random.normal(loc=0.0, scale=1.0, size=x), **kwargs):
         """
         :param n_nodes: Number of nodes
         :param directed_graph_generator: Hand coded generator or one of the following :
         https://networkx.github.io/documentation/latest/reference/generators.html#module-networkx.generators.directed
+        :param function: StructuralFunction object
         """
         self.n_nodes = n_nodes
         self.dag = directed_graph_generator(n_nodes)
-        self.function=function
-        self.initialize_dag(**kwargs)
+        self.function = function
+        self.initialize_dag(edge_weight_sampler, **kwargs)
 
-    def initialize_dag(self, **kwargs):
+    def initialize_dag(self, edge_weight_sampler, **kwargs):
         nx.set_node_attributes(self.dag, dict(zip(range(self.n_nodes), [0] * self.n_nodes)), 'value')
+        # Add structural equations to the graph object
         structeq_list = [StructuralEquation(self.dag, i, function=self.function, **kwargs) for i in range(self.n_nodes)]
         nx.set_node_attributes(self.dag, dict(zip(range(self.n_nodes), structeq_list)), 'structeq')
-        nx.set_edge_attributes(self.dag, 1, name="weight")
+        # Initialize edge weights
+        weights_dict = dict(zip(self.dag.edges, edge_weight_sampler(len(self.dag.edges))))
+        nx.set_edge_attributes(self.dag, weights_dict, name="weight")
 
     def generate(self):
         """
@@ -74,9 +53,12 @@ class DirectedAcyclicGraph:
             string += "\t edge " + str(i) + "\n"
         return string
 
-    def draw(self, layout="circular", show_node_name=False, show_values=False, show_eq=False):
+    def draw(self, layout="circular", show_node_name=False, show_values=False, show_eq=False,
+             show_weights=False, colorbar=False):
         """
         Draw the DAG with matplotlib
+        :param show_weights:
+        :param colorbar:
         :param show_node_name:
         :param show_eq: Show struc. equation on top of edges
         :param show_values: show values on top of nodes
@@ -93,23 +75,33 @@ class DirectedAcyclicGraph:
 
         values = list(nx.get_node_attributes(self.dag, 'value').values())
         nc = nx.draw_networkx_nodes(self.dag, pos, node_color=values, cmap=plt.cm.autumn)
-        nx.draw_networkx_edges(self.dag, pos)
-        plt.colorbar(nc)
+        nx.draw_networkx_edges(self.dag, pos,
+                               width=[2*w for w in list(nx.get_edge_attributes(self.dag, "weight").values())])
+        if colorbar:
+            plt.colorbar(nc)
         plt.axis('off')
         if show_node_name:
             nx.draw_networkx_labels(self.dag, pos)
         if show_values:
-            nx.draw_networkx_labels(self.dag, pos, nx.get_node_attributes(self.dag, 'value'))
+            truncated_values = dict(zip(nx.get_node_attributes(self.dag, 'value').keys(),
+                                        [str(x)[:5] for x in nx.get_node_attributes(self.dag, 'value').values()]))
+            nx.draw_networkx_labels(self.dag, pos, truncated_values)
         if show_eq:
             nx.draw_networkx_labels(self.dag, pos, nx.get_node_attributes(self.dag, 'structeq'))
+        if show_weights:
+            truncated_weights = dict(zip(nx.get_edge_attributes(self.dag, 'weight').keys(),
+                                         [str(x)[:5] for x in nx.get_edge_attributes(self.dag, 'weight').values()]))
+            nx.draw_networkx_edge_labels(self.dag, pos, truncated_weights)
         plt.show()
 
 
 if __name__ == "__main__":
-    G = DirectedAcyclicGraph(10, function=Max, offset=0)
+    G = DirectedAcyclicGraph(5, function=NoisyLinear, offset=10)
     print(G)
-    G.draw(show_node_name=False, show_values=True, show_eq=False)
+    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True)
+    np.random.seed(0)
     G.generate()
-    G.draw(show_node_name=False, show_values=True, show_eq=False)
+    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True)
+    np.random.seed(0)
     G.generate()
-    G.draw(show_node_name=False, show_values=True, show_eq=False)
+    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True)
