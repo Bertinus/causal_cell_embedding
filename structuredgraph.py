@@ -69,31 +69,35 @@ class StructuredGraph:
         :param structural_equation_generator: given a graph and index, returns a structural
         equation and sets related weights in the graph.
         """
-        nx.set_node_attributes(self.graph, dict(zip(range(self.n_nodes), [0] * self.n_nodes)), 'value')
+        nx.set_node_attributes(self.graph, dict(zip(range(self.n_nodes), [np.zeros(1)] * self.n_nodes)), 'value')
         # Initialize edge weights to one
         nx.set_edge_attributes(self.graph, dict(zip(self.graph.edges, [1] * self.n_edges)), name='weight')
         # Add struct eq to the graph object. Edge weights are (possibly) modified by the structural equation generator
         structeq_list = [structural_equation_generator(self.graph, i) for i in range(self.n_nodes)]
         nx.set_node_attributes(self.graph, dict(zip(range(self.n_nodes), structeq_list)), 'structeq')
 
-    def generate(self):
+    def generate(self, n_examples=1):
         """
         Generates all values from structural equations in the right (topological) order.
         Note : Generated values are not dependent on the previous state of the graph as long as the graph is acyclic
         """
         for n in nx.topological_sort(self.graph):
-            self.graph.node[n]["structeq"].generate()
+            self.graph.node[n]["structeq"].generate(n_examples)
 
-    def generate_observations(self, n_examples):
-        data = []
-        for i in range(n_examples):
-            self.generate()
-            data.append(list(nx.get_node_attributes(self.graph, 'value').values())[self.n_hidden:])
-        return np.array(data)
+    def get_observations(self, with_hidden=False):
+        """
+        :return: An array of shape (n_examples, n_observations) filled with observation values where n_examples is
+        the current shape of the "value" node attribute
+        """
+        data = np.array(list(nx.get_node_attributes(self.graph, 'value').values()))[self.n_hidden:].T
+        if with_hidden:
+            hidden = np.array(list(nx.get_node_attributes(self.graph, 'value').values()))[:self.n_hidden].T
+            return hidden, data
+        return data
 
-    def start_intervention(self, node, value=0):
+    def set_intervention(self, node, value=0):
         # End previous intervention
-        self.end_intervention()
+        self.reset_intervention()
         # Save truncated part
         self.intervened_node = node
         self.truncated_edges = copy.deepcopy(self.graph.in_edges(node, data=True))
@@ -102,7 +106,7 @@ class StructuredGraph:
         self.graph.remove_edges_from(self.truncated_edges)
         self.graph.node[node]["structeq"] = StructuralEquation(self.graph, node, Const(value))
 
-    def end_intervention(self):
+    def reset_intervention(self):
         # Recover original graph if the graph has been intervened
         if self.intervened_node:
             self.graph.add_edges_from(self.truncated_edges)
@@ -137,7 +141,8 @@ class StructuredGraph:
         :param ax: Matplotlib Axes object
         """
         pos = layout(self)
-        values = list(nx.get_node_attributes(self.graph, 'value').values())
+        # Print only first example of values for each node
+        values = [i[0] for i in nx.get_node_attributes(self.graph, 'value').values()]
 
         nc = nx.draw_networkx_nodes(self.graph, pos, node_color=values, cmap=plt.cm.autumn, ax=ax)
         nx.draw_networkx_edges(self.graph, pos,
@@ -151,7 +156,7 @@ class StructuredGraph:
                                                              [x + np.array([0, 0.15]) for x in pos.values()])), ax=ax)
         if show_values:
             truncated_values = dict(zip(nx.get_node_attributes(self.graph, 'value').keys(),
-                                        [str(x)[:5] for x in nx.get_node_attributes(self.graph, 'value').values()]))
+                                        [str(x[0])[:5] for x in nx.get_node_attributes(self.graph, 'value').values()]))
             nx.draw_networkx_labels(self.graph, pos, truncated_values, ax=ax)
         if show_eq:
             nx.draw_networkx_labels(self.graph, pos=dict(zip(pos.keys(),
@@ -177,4 +182,4 @@ if __name__ == "__main__":
     G.generate()
     G.draw(show_node_name=True, show_values=True, show_eq=True, show_weights=True, colorbar=False)
     plt.show()
-    G.start_intervention(13, 0)
+    G.set_intervention(13, 0)

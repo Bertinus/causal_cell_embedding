@@ -33,10 +33,10 @@ class StructuralEquation:
     def __repr__(self):
         return str(self.function)
 
-    def generate(self):
-        inputs = [self.graph.node[i]['value'] for i in self.graph.predecessors(self.target)]
-        edge_weights = [n[2]["weight"] for n in self.graph.in_edges(nbunch=self.target, data=True)]
-        self.graph.node[self.target]['value'] = self.function.compute(inputs=inputs, edge_weights=edge_weights)
+    def generate(self, n_examples=1):
+        inputs = np.array([self.graph.node[i]['value'] for i in self.graph.predecessors(self.target)])
+        edge_weights = np.array([n[2]["weight"] for n in self.graph.in_edges(nbunch=self.target, data=True)])
+        self.graph.node[self.target]['value'] = self.function.compute(inputs, edge_weights, n_examples)
 
 
 ########################################################################################################################
@@ -48,10 +48,11 @@ class StructuralFunction:
     def __init__(self, **kwargs):
         pass
 
-    def compute(self, inputs, edge_weights=None):
+    def compute(self, inputs, edge_weights=None, n_examples=1):
         """
         :param inputs: list of neighbours values
         :param edge_weights: list of edge weights
+        :param n_examples:
         :return: output of the function
         """
         pass
@@ -69,10 +70,10 @@ class Max(StructuralFunction):
     def __repr__(self):
         return "max"
 
-    def compute(self, inputs, edge_weights=None):
-        if not inputs:
-            return 0
-        return max(inputs) + self.offset
+    def compute(self, inputs, edge_weights=None, n_examples=1):
+        if inputs.shape[0] == 0:
+            return np.array([self.offset]*n_examples)
+        return inputs.max(axis=0) + np.array([self.offset]*n_examples)
 
 
 class Const(StructuralFunction):
@@ -87,8 +88,8 @@ class Const(StructuralFunction):
     def __repr__(self):
         return "const"
 
-    def compute(self, inputs, edge_weights=None):
-        return self.offset
+    def compute(self, inputs, edge_weights=None, n_examples=1):
+        return np.array([self.offset]*n_examples)
 
 
 class Linear(StructuralFunction):
@@ -103,16 +104,31 @@ class Linear(StructuralFunction):
     def __repr__(self):
         return "linear"
 
-    def compute(self, inputs, edge_weights=None):
-        if not edge_weights:
-            return 0
-        inputs = np.array(inputs)
-        edge_weights = np.array(edge_weights)
-        return int((inputs * edge_weights).sum()) + self.offset
+    def compute(self, inputs, edge_weights=None, n_examples=1):
+        if edge_weights.shape[0] == 0:
+            return np.array([self.offset]*n_examples)
+        return edge_weights[None, :].dot(inputs)[0, :] + np.array([self.offset]*n_examples)
+
+
+class Noise(StructuralFunction):
+    def __init__(self, sampler=lambda size: np.random.normal(loc=0.0, scale=1.0, size=size), offset=0):
+        super().__init__()
+        self.sampler = sampler
+        self.offset = offset
+        return
+
+    def __str__(self):
+        return "noise"
+
+    def __repr__(self):
+        return "noise"
+
+    def compute(self, inputs, edge_weights=None, n_examples=1):
+        return self.sampler(n_examples) + np.array([self.offset]*n_examples)
 
 
 class NoisyLinear(StructuralFunction):
-    def __init__(self, sampler=lambda: np.random.normal(loc=0.0, scale=1.0, size=None), offset=0):
+    def __init__(self, sampler=lambda size: np.random.normal(loc=0.0, scale=1.0, size=size), offset=0):
         super().__init__()
         self.sampler = sampler
         self.offset = offset
@@ -124,12 +140,10 @@ class NoisyLinear(StructuralFunction):
     def __repr__(self):
         return "noisy linear"
 
-    def compute(self, inputs, edge_weights=None):
-        if not edge_weights:
-            return self.sampler()
-        inputs = np.array(inputs)
-        edge_weights = np.array(edge_weights)
-        return int((inputs * edge_weights).sum()) + self.offset + self.sampler()
+    def compute(self, inputs, edge_weights=None, n_examples=1):
+        if edge_weights.shape[0] == 0:
+            return self.sampler(n_examples) + np.array([self.offset]*n_examples)
+        return edge_weights[None, :].dot(inputs)[0, :] + np.array([self.offset]*n_examples) + self.sampler(n_examples)
 
 
 # TODO : Add quadratic and sinusoid functions
@@ -169,6 +183,24 @@ def lin_generator(graph, index):
 
 
 def binary_lin_generator(graph, index):
+    """
+    :param graph: (directed acyclic) graph as a nxgraph object
+    :param index: index of the target node
+    """
+    def edge_weight_sampler(g, edges):
+        return 2*np.random.binomial(1, 0.5, size=len(edges)) - 1
+
+    function = Linear()
+    set_weights(graph, graph.in_edges(index), edge_weight_sampler)
+
+    # If a node has no parent, generate noise
+    if len(list(graph.predecessors(index))) == 0:
+        function = Noise()
+
+    return StructuralEquation(graph, index, function)
+
+
+def binary_noisy_lin_generator(graph, index):
     """
     :param graph: (directed acyclic) graph as a nxgraph object
     :param index: index of the target node
