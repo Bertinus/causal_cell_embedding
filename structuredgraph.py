@@ -76,6 +76,12 @@ class StructuredGraph:
         structeq_list = [structural_equation_generator(self.graph, i) for i in range(self.n_nodes)]
         nx.set_node_attributes(self.graph, dict(zip(range(self.n_nodes), structeq_list)), 'structeq')
 
+    def get_observation_nodes(self):
+        return range(self.n_hidden, self.n_nodes)
+
+    def get_hidden_nodes(self):
+        return range(self.n_hidden)
+
     def generate(self, n_examples=1):
         """
         Generates all values from structural equations in the right (topological) order.
@@ -95,7 +101,7 @@ class StructuredGraph:
             return hidden, data
         return data
 
-    def set_intervention(self, node, value=0):
+    def set_intervention(self, node, value=0, function=Const):
         # End previous intervention
         self.reset_intervention()
         # Save truncated part
@@ -104,7 +110,7 @@ class StructuredGraph:
         self.intervened_structeq = self.graph.node[node]["structeq"]
         # Truncate the graph
         self.graph.remove_edges_from(self.truncated_edges)
-        self.graph.node[node]["structeq"] = StructuralEquation(self.graph, node, Const(value))
+        self.graph.node[node]["structeq"] = StructuralEquation(self.graph, node, function(offset=value))
 
     def reset_intervention(self):
         # Recover original graph if the graph has been intervened
