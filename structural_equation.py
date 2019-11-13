@@ -76,6 +76,24 @@ class Max(StructuralFunction):
         return inputs.max(axis=0) + np.array([self.offset]*n_examples)
 
 
+class Min(StructuralFunction):
+    def __init__(self, offset=0):
+        super().__init__()
+        self.offset = offset
+        return
+
+    def __str__(self):
+        return "min"
+
+    def __repr__(self):
+        return "min"
+
+    def compute(self, inputs, edge_weights=None, n_examples=1):
+        if inputs.shape[0] == 0:
+            return np.array([self.offset]*n_examples)
+        return inputs.min(axis=0) + np.array([self.offset]*n_examples)
+
+
 class Const(StructuralFunction):
     def __init__(self, offset):
         super().__init__()
