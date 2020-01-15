@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -8,11 +6,12 @@ import matplotlib.pyplot as plt
 import os
 from os.path import abspath
 
-path_to_data = "/home/user/Documents/CausalGene_Data/GSE70138_Broad_LINCS/Level5_COMPZ_n118050x12328_2017-03-06.gctx"
-path_to_siginfo = "/home/user/Documents/CausalGene_Data/GSE70138_Broad_LINCS/sig_info_2017-03-06.txt"
-sig_info =  pd.read_csv(path_to_siginfo, sep="\t")
+path_to_data = "L1000/GSE70138_Broad_LINCS/Level5_COMPZ_n118050x12328_2017-03-06.gctx"
+path_to_siginfo = "L1000/GSE70138_Broad_LINCS/sig_info_2017-03-06.txt"
+sig_info = pd.read_csv(path_to_siginfo, sep="\t")
 
-class data_loader:
+
+class DataLoader:
     def __init__(self, cell_ids, pert_types, batch_size, path_to_data, path_to_siginfo, sig_info):
         self.cell_ids = cell_ids
         self.pert_types = pert_types
@@ -38,13 +37,13 @@ if __name__ == "__main__":
     pert_types = ["DMSO"]
     batch_size = '64'
     
-    loader = data_loader(cell_ids, pert_types, batch_size, path_to_data, path_to_siginfo, sig_info)
+    loader = DataLoader(cell_ids, pert_types, batch_size, path_to_data, path_to_siginfo, sig_info)
     dataset = loader.get_env_specific_data()
     #dataset.normalize_by_gene("standard_scale")
     all_enviromnents, all_cells = loader.get_all_env_ids()
 
     #To see the results
-    print('All cell-ids present in L1000 Dataset: ' ,all_cells)
-    print('All environments present in L1000 Dataset: ' ,all_enviromnents)
-    print('Data corresponding to given cell id and perturbagent: ',dataset)
+    print('All cell-ids present in L1000 Dataset: ', all_cells)
+    print('All environments present in L1000 Dataset: ', all_enviromnents)
+    print('Data corresponding to given cell id and perturbagent: ', dataset)
 
