@@ -1,10 +1,10 @@
 
-#run bash load.sh to load required data
+#run bash load_L1000.sh to load required data
 
 #!/bin/bash
 
 
-DATA_DIR=data
+DATA_DIR=L1000
 ACC=GSE70138
 PREFIX=${ACC}_Broad_LINCS
 GEO_URL=https://www.ncbi.nlm.nih.gov/geo
