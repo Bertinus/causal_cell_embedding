@@ -2,11 +2,10 @@ import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
 
-from structural_equation import StructuralEquation, max_generator, lin_hidden_max_obs_generator, lin_generator, \
-    binary_lin_generator, Const
-from dag_generator import gn_graph_generator
-from obs_subgraph_generator import random_obs_subgraph_generator
-from utils import circular_layout, spring_layout, circular_plus_obs_layout
+from SyntheticDataGenerator.structural_equation import StructuralEquation, binary_lin_generator, Const
+from SyntheticDataGenerator.dag_generator import gn_graph_generator
+from SyntheticDataGenerator.obs_subgraph_generator import random_obs_subgraph_generator
+from SyntheticDataGenerator.utils import circular_plus_obs_layout
 import copy
 
 
