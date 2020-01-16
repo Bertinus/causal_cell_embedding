@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import os
 from os.path import abspath
 
-path_to_data = "L1000/GSE70138_Broad_LINCS/Level5_COMPZ_n118050x12328_2017-03-06.gctx"
-path_to_siginfo = "L1000/GSE70138_Broad_LINCS/sig_info_2017-03-06.txt"
+path_to_data = "L1000_PhaseII/GSE70138_Broad_LINCS/Level5_COMPZ_n118050x12328_2017-03-06.gctx"
+path_to_siginfo = "L1000_PhaseII/GSE70138_Broad_LINCS/sig_info_2017-03-06.txt"
 sig_info = pd.read_csv(path_to_siginfo, sep="\t")
 
 
@@ -43,7 +43,6 @@ if __name__ == "__main__":
     all_enviromnents, all_cells = loader.get_all_env_ids()
 
     #To see the results
-    print('All cell-ids present in L1000 Dataset: ', all_cells)
-    print('All environments present in L1000 Dataset: ', all_enviromnents)
+    print('All cell-ids present in L1000_PhaseII Dataset: ', all_cells)
+    print('All environments present in L1000_PhaseII Dataset: ', all_enviromnents)
     print('Data corresponding to given cell id and perturbagent: ', dataset)
-
