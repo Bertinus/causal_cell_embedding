@@ -3,11 +3,13 @@ import pandas as pd
 from cmapPy.pandasGEXpress.parse import parse
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import Sampler
-import torch
-from random import shuffle
-from tqdm import tqdm
 import numpy as np
 import os
+
+
+########################################################################################################################
+# Synthetic dataset
+########################################################################################################################
 
 
 class SyntheticDataset(Dataset):
@@ -20,6 +22,10 @@ class SyntheticDataset(Dataset):
 
     def __getitem__(self, idx):
         return
+
+########################################################################################################################
+# L1000 dataset
+########################################################################################################################
 
 
 class L1000Dataset(Dataset):
