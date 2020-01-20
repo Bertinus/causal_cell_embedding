@@ -21,8 +21,8 @@ class DataLoader:
         self.sig_info = sig_info
 
     def get_env_specific_data(self):
-        given_env = self.sig_info["sig_id"][(self.sig_info["pert_id"] == self.pert_types[0]) & (self.sig_info["cell_id"] == self.cell_ids[0])]
-        data_in_given_env = parse(self.path_to_data, cid = given_env)
+        given_env = self.sig_info["sig_id"][(self.sig_info["pert_id"] == self.pert_types[0]) & (self.sig_info["cell_id"]==self.cell_ids[0])]
+        data_in_given_env = parse(self.path_to_data, cid=given_env)
         return data_in_given_env.data_df
 
     def get_all_env_ids(self):
