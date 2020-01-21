@@ -23,6 +23,7 @@ class SyntheticDataset(Dataset):
     def __getitem__(self, idx):
         return
 
+
 ########################################################################################################################
 # L1000 dataset
 ########################################################################################################################
@@ -88,7 +89,7 @@ class BasicL1000Sampler(Sampler):
 
     """
 
-    def __init__(self, env_dict, length, batch_size, seed=0):
+    def __init__(self, env_dict, length, batch_size, seed=0, restrict_to_envs_longer_than=None):
         """
         :param env_dict: dict with (pert, cell) keys corresponding to desired environments
                 dict[(pert, cell)] contains the list of all corresponding sig_ids
@@ -97,6 +98,9 @@ class BasicL1000Sampler(Sampler):
         self.length = length
         self.seed = seed
         self.batch_size = batch_size
+
+        if restrict_to_envs_longer_than is not None:
+            self.restrict_env_dict(restrict_to_envs_longer_than)
 
     def iterator(self):
         np.random.seed(self.seed)
@@ -115,6 +119,14 @@ class BasicL1000Sampler(Sampler):
                 yield batch
                 batch = []
 
+    def restrict_env_dict(self, restrict_to_envs_longer_than):
+        """
+        Remove environments that do not contain enough samples from the dictionary
+        """
+        for k in list(self.env_dict.keys()):
+            if len(self.env_dict[k]) < restrict_to_envs_longer_than:
+                del self.env_dict[k]
+
     def __iter__(self):
         return self.iterator()
 
@@ -130,7 +142,7 @@ class EnvironmentL1000Sampler(Sampler):
 
     """
 
-    def __init__(self, env_dict, length, batch_size, n_env_per_batch=1, seed=0):
+    def __init__(self, env_dict, length, batch_size, n_env_per_batch=1, seed=0, restrict_to_envs_longer_than=None):
         """
         :param env_dict: dict with (pert, cell) keys corresponding to desired environments
                 dict[(pert, cell)] contains the list of all corresponding sig_ids
@@ -142,6 +154,9 @@ class EnvironmentL1000Sampler(Sampler):
         self.n_env_per_batch = n_env_per_batch
         self.seed = seed
 
+        if restrict_to_envs_longer_than is not None:
+            self.restrict_env_dict(restrict_to_envs_longer_than)
+
     def iterator(self):
         np.random.seed(self.seed)
         keys = np.random.permutation(list(self.env_dict.keys()))
@@ -152,7 +167,6 @@ class EnvironmentL1000Sampler(Sampler):
             batch = []
             # choose indices specific to several environments and add them to the batch list
             for env in range(self.n_env_per_batch):
-                print("New env")
                 if env_cpt >= len(keys):
                     break
                 pert, cell = keys[env_cpt]
@@ -162,6 +176,14 @@ class EnvironmentL1000Sampler(Sampler):
             # Choose batch_size elements at random in the batch list
             yield np.random.permutation(batch)[:self.batch_size]
 
+    def restrict_env_dict(self, restrict_to_envs_longer_than):
+        """
+        Remove environments that do not contain enough samples from the dictionary
+        """
+        for k in list(self.env_dict.keys()):
+            if len(self.env_dict[k]) < restrict_to_envs_longer_than:
+                del self.env_dict[k]
+
     def __iter__(self):
         return self.iterator()
 
@@ -169,16 +191,25 @@ class EnvironmentL1000Sampler(Sampler):
         return self.length
 
 
-def l1000_dataloader(batch_size=16):
+def basic_l1000_dataloader(batch_size=16, restrict_to_envs_longer_than=None):
+    dataset = L1000Dataset()
+    sampler = BasicL1000Sampler(dataset.get_non_empty_env_dict(), len(dataset), batch_size=batch_size,
+                                restrict_to_envs_longer_than=restrict_to_envs_longer_than)
+
+    return DataLoader(dataset=dataset, batch_sampler=sampler)
+
+
+def environment_l1000_dataloader(batch_size=16, n_env_per_batch=3, restrict_to_envs_longer_than=None):
     dataset = L1000Dataset()
     sampler = EnvironmentL1000Sampler(dataset.get_non_empty_env_dict(), len(dataset), batch_size=batch_size,
-                                      n_env_per_batch=3)
+                                      n_env_per_batch=n_env_per_batch,
+                                      restrict_to_envs_longer_than=restrict_to_envs_longer_than)
 
     return DataLoader(dataset=dataset, batch_sampler=sampler)
 
 
 if __name__ == "__main__":
 
-    dataloader = l1000_dataloader()
+    dataloader = environment_l1000_dataloader(restrict_to_envs_longer_than=10)
     for i in dataloader:
         print(i.shape)
