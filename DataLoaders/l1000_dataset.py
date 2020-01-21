@@ -8,23 +8,6 @@ import os
 
 
 ########################################################################################################################
-# Synthetic dataset
-########################################################################################################################
-
-
-class SyntheticDataset(Dataset):
-
-    def __init__(self):
-        return
-
-    def __len__(self):
-        return len(self.Data)
-
-    def __getitem__(self, idx):
-        return
-
-
-########################################################################################################################
 # L1000 dataset
 ########################################################################################################################
 
@@ -77,7 +60,14 @@ class L1000Dataset(Dataset):
         return len(self.sig_info)
 
     def __getitem__(self, sig_id):
-        return self.data.loc[sig_id].to_numpy()
+        return self.data.loc[sig_id].to_numpy(), \
+               self.sig_info.pert_id.loc[sig_id], \
+               self.sig_info.cell_id.loc[sig_id]
+
+
+########################################################################################################################
+# L1000 sampler
+########################################################################################################################
 
 
 class BasicL1000Sampler(Sampler):
@@ -190,6 +180,10 @@ class EnvironmentL1000Sampler(Sampler):
     def __len__(self):
         return self.length
 
+########################################################################################################################
+# L1000 dataloaders
+########################################################################################################################
+
 
 def basic_l1000_dataloader(batch_size=16, restrict_to_envs_longer_than=None):
     dataset = L1000Dataset()
@@ -211,5 +205,5 @@ def environment_l1000_dataloader(batch_size=16, n_env_per_batch=3, restrict_to_e
 if __name__ == "__main__":
 
     dataloader = environment_l1000_dataloader(restrict_to_envs_longer_than=10)
-    for i in dataloader:
-        print(i.shape)
+    for x, pert, cell in dataloader:
+        print(x.shape, len(pert), len(cell))
