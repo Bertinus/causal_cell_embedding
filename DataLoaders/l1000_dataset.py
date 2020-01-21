@@ -6,6 +6,20 @@ from torch.utils.data.sampler import Sampler
 import numpy as np
 import os
 
+paths_to_L1000_files = {
+    "phase1": {
+        "path_to_data": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_Level5_COMPZ.MODZ_n473647x12328"
+                        ".gctx",
+        "path_to_sig_info": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_sig_info.txt",
+        "path_to_gene_info": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_gene_info.txt",
+        "dict_path": "Data/L1000_PhaseI/non_empty_env_dict.npy"
+    }, "phase2": {
+        "path_to_data": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/Level5_COMPZ_n118050x12328_2017-03-06.gctx",
+        "path_to_sig_info": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/sig_info_2017-03-06.txt",
+        "path_to_gene_info": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/gene_info_2017-03-06.txt",
+        "dict_path": "Data/L1000_PhaseII/non_empty_env_dict.npy"
+    }}
+
 
 ########################################################################################################################
 # L1000 dataset
@@ -18,17 +32,18 @@ class L1000Dataset(Dataset):
     https://docs.google.com/document/d/1q2gciWRhVCAAnlvF2iRLuJ7whrGP6QjpsCMq1yWz7dU/edit#heading=h.usef9o7fuux3
     """
 
-    def __init__(self,
-                 path_to_data="Data/L1000_PhaseII/GSE70138_Broad_LINCS/Level5_COMPZ_n118050x12328_2017-03-06.gctx",
-                 path_to_sig_info="Data/L1000_PhaseII/GSE70138_Broad_LINCS/sig_info_2017-03-06.txt",
-                 path_to_gene_info="Data/L1000_PhaseII/GSE70138_Broad_LINCS/gene_info_2017-03-06.txt"):
+    def __init__(self, phase="phase2"):
+
+        assert phase in ["phase1", "phase2"]
+        self.phase = phase
 
         # Data path
-        self.path_to_data = path_to_data
+        self.path_to_data = paths_to_L1000_files[self.phase]["path_to_data"]
 
         # Read metadata
-        self.sig_info = pd.read_csv(path_to_sig_info, sep="\t", index_col="sig_id")
-        self.gene_info = pd.read_csv(path_to_gene_info, sep="\t")
+        self.sig_info = pd.read_csv(paths_to_L1000_files[self.phase]["path_to_sig_info"], sep="\t", index_col="sig_id",
+                                    usecols=["sig_id", "pert_id", "cell_id"])
+        self.gene_info = pd.read_csv(paths_to_L1000_files[self.phase]["path_to_gene_info"], sep="\t")
         self.landmark_gene_list = self.gene_info[self.gene_info['pr_is_lm'] == 1]["pr_gene_id"].astype(str)
 
         # Load all data
@@ -40,7 +55,7 @@ class L1000Dataset(Dataset):
                 dict[(pert, cell)] contains the list of all corresponding sig_ids
         """
         # if the dict has been saved previously, load it
-        dict_path = "Data/L1000_PhaseII/non_empty_env_dict.npy"
+        dict_path = paths_to_L1000_files[self.phase]["dict_path"]
         if os.path.isfile(dict_path):
             return np.load(dict_path, allow_pickle='TRUE').item()
 
@@ -180,21 +195,22 @@ class EnvironmentL1000Sampler(Sampler):
     def __len__(self):
         return self.length
 
+
 ########################################################################################################################
 # L1000 dataloaders
 ########################################################################################################################
 
 
-def basic_l1000_dataloader(batch_size=16, restrict_to_envs_longer_than=None):
-    dataset = L1000Dataset()
+def basic_l1000_dataloader(phase="phase2", batch_size=16, restrict_to_envs_longer_than=None):
+    dataset = L1000Dataset(phase=phase)
     sampler = BasicL1000Sampler(dataset.get_non_empty_env_dict(), len(dataset), batch_size=batch_size,
                                 restrict_to_envs_longer_than=restrict_to_envs_longer_than)
 
     return DataLoader(dataset=dataset, batch_sampler=sampler)
 
 
-def environment_l1000_dataloader(batch_size=16, n_env_per_batch=3, restrict_to_envs_longer_than=None):
-    dataset = L1000Dataset()
+def environment_l1000_dataloader(phase="phase2", batch_size=16, n_env_per_batch=3, restrict_to_envs_longer_than=None):
+    dataset = L1000Dataset(phase=phase)
     sampler = EnvironmentL1000Sampler(dataset.get_non_empty_env_dict(), len(dataset), batch_size=batch_size,
                                       n_env_per_batch=n_env_per_batch,
                                       restrict_to_envs_longer_than=restrict_to_envs_longer_than)
@@ -204,6 +220,6 @@ def environment_l1000_dataloader(batch_size=16, n_env_per_batch=3, restrict_to_e
 
 if __name__ == "__main__":
 
-    dataloader = environment_l1000_dataloader(restrict_to_envs_longer_than=10)
+    dataloader = environment_l1000_dataloader(phase="phase2", restrict_to_envs_longer_than=10)
     for x, pert, cell in dataloader:
         print(x.shape, len(pert), len(cell))
