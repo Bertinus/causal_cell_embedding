@@ -84,16 +84,10 @@ class L1000Dataset(Dataset):
 # L1000 sampler
 ########################################################################################################################
 
-
-class BasicL1000Sampler(Sampler):
+class L1000Sampler(Sampler):
     """
     Sampler class used to loop over the dataset while taking into account environments
-
-    Loop over all environments in the keys of the dict. Once in a given environment,
-    yields all samples from that environment
-
     """
-
     def __init__(self, env_dict, length, batch_size, seed=0, restrict_to_envs_longer_than=None):
         """
         :param env_dict: dict with (pert, cell) keys corresponding to desired environments
@@ -106,6 +100,33 @@ class BasicL1000Sampler(Sampler):
 
         if restrict_to_envs_longer_than is not None:
             self.restrict_env_dict(restrict_to_envs_longer_than)
+
+    def restrict_env_dict(self, restrict_to_envs_longer_than):
+        """
+        Remove environments that do not contain enough samples from the dictionary
+        """
+        for k in list(self.env_dict.keys()):
+            if len(self.env_dict[k]) < restrict_to_envs_longer_than:
+                del self.env_dict[k]
+
+    def iterator(self):
+        raise NotImplementedError()
+
+    def __iter__(self):
+        return self.iterator()
+
+    def __len__(self):
+        return self.length
+
+
+class BasicL1000Sampler(L1000Sampler):
+    """
+    Loop over all environments in the keys of the dict. Once in a given environment,
+    yields all samples from that environment
+    """
+
+    def __init__(self, env_dict, length, batch_size, seed=0, restrict_to_envs_longer_than=None):
+        super().__init__(env_dict, length, batch_size, seed, restrict_to_envs_longer_than)
 
     def iterator(self):
         np.random.seed(self.seed)
@@ -124,43 +145,18 @@ class BasicL1000Sampler(Sampler):
                 yield batch
                 batch = []
 
-    def restrict_env_dict(self, restrict_to_envs_longer_than):
-        """
-        Remove environments that do not contain enough samples from the dictionary
-        """
-        for k in list(self.env_dict.keys()):
-            if len(self.env_dict[k]) < restrict_to_envs_longer_than:
-                del self.env_dict[k]
 
-    def __iter__(self):
-        return self.iterator()
-
-    def __len__(self):
-        return self.length
-
-
-class EnvironmentL1000Sampler(Sampler):
+class EnvironmentL1000Sampler(L1000Sampler):
     """
-    Sampler class used to loop over the dataset while taking into account environments
-
     Each batch contains samples from randomly drawn n_env_per_batch distinct environments
-
     """
 
     def __init__(self, env_dict, length, batch_size, n_env_per_batch=1, seed=0, restrict_to_envs_longer_than=None):
         """
-        :param env_dict: dict with (pert, cell) keys corresponding to desired environments
-                dict[(pert, cell)] contains the list of all corresponding sig_ids
         :param n_env_per_batch: Number of environments per batch
         """
-        self.env_dict = env_dict
-        self.length = length
-        self.batch_size = batch_size
+        super().__init__(env_dict, length, batch_size, seed, restrict_to_envs_longer_than)
         self.n_env_per_batch = n_env_per_batch
-        self.seed = seed
-
-        if restrict_to_envs_longer_than is not None:
-            self.restrict_env_dict(restrict_to_envs_longer_than)
 
     def iterator(self):
         np.random.seed(self.seed)
@@ -180,20 +176,6 @@ class EnvironmentL1000Sampler(Sampler):
 
             # Choose batch_size elements at random in the batch list
             yield np.random.permutation(batch)[:self.batch_size]
-
-    def restrict_env_dict(self, restrict_to_envs_longer_than):
-        """
-        Remove environments that do not contain enough samples from the dictionary
-        """
-        for k in list(self.env_dict.keys()):
-            if len(self.env_dict[k]) < restrict_to_envs_longer_than:
-                del self.env_dict[k]
-
-    def __iter__(self):
-        return self.iterator()
-
-    def __len__(self):
-        return self.length
 
 
 ########################################################################################################################
@@ -220,6 +202,6 @@ def environment_l1000_dataloader(phase="phase2", batch_size=16, n_env_per_batch=
 
 if __name__ == "__main__":
 
-    dataloader = environment_l1000_dataloader(phase="phase2", restrict_to_envs_longer_than=10)
+    dataloader = basic_l1000_dataloader(phase="phase2", restrict_to_envs_longer_than=10)
     for x, pert, cell in dataloader:
         print(x.shape, len(pert), len(cell))
