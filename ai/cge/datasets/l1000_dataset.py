@@ -173,7 +173,7 @@ class EnvironmentL1000Sampler(L1000Sampler):
                 pert, cell = keys[env_cpt]
                 env_cpt += 1
                 batch.extend(self.env_dict[(pert, cell)])
-
+            # TODO: The proportion of samples coming from each env should be balanced
             # Choose batch_size elements at random in the batch list
             yield np.random.permutation(batch)[:self.batch_size]
 
