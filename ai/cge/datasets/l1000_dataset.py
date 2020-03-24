@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.sampler import Sampler
 import numpy as np
 import os
+import ai.cge.utils.register as register
 
 paths_to_L1000_files = {
     "phase1": {
@@ -182,7 +183,7 @@ class EnvironmentL1000Sampler(L1000Sampler):
 # L1000 dataloaders
 ########################################################################################################################
 
-
+@register.setdatasetname("L1000_basic")
 def basic_l1000_dataloader(phase="phase2", batch_size=16, restrict_to_envs_longer_than=None):
     dataset = L1000Dataset(phase=phase)
     sampler = BasicL1000Sampler(dataset.get_non_empty_env_dict(), len(dataset), batch_size=batch_size,
@@ -203,5 +204,6 @@ def environment_l1000_dataloader(phase="phase2", batch_size=16, n_env_per_batch=
 if __name__ == "__main__":
 
     dataloader = basic_l1000_dataloader(phase="phase2", restrict_to_envs_longer_than=10)
-    for x, pert, cell in dataloader:
-        print(x.shape, len(pert), len(cell))
+    print(dataloader.dataset.sig_info)
+    # for x, pert, cell in dataloader:
+    #     print(x.shape, len(pert), len(cell))

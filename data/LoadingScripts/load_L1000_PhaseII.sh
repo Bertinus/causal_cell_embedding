@@ -1,7 +1,7 @@
 #run bash load_L1000_PhaseII.sh to load required data
 #!/bin/bash
 
-DATA_DIR=L1000_PhaseII
+DATA_DIR=../L1000_PhaseII
 ACC=GSE70138
 PREFIX=${ACC}_Broad_LINCS
 GEO_URL=https://www.ncbi.nlm.nih.gov/geo
@@ -26,4 +26,4 @@ done
 # remove "pr_" from gene metadata cols
 sed -i "s/pr_//g" gene_info_2017-03-06.txt
 
-cd ../../
+cd ../../../

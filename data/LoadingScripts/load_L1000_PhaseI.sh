@@ -1,7 +1,7 @@
 #run bash load_L1000_PhaseII.sh to load required data
 #!/bin/bash
 
-DATA_DIR=L1000_PhaseI
+DATA_DIR=../L1000_PhaseI
 ACC=GSE92742
 PREFIX=${ACC}_Broad_LINCS
 
@@ -22,4 +22,4 @@ for f in ${files[*]}; do
     | gunzip > $f
 done
 
-cd ../../
+cd ../../../

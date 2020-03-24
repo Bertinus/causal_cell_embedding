@@ -1,4 +1,4 @@
-from ai.semrep.models.utils import generate_feedforward_layers, Dummy
+from ai.cge.models.utils import generate_feedforward_layers, Dummy
 from copy import copy
 from torch.nn.utils import spectral_norm
 import ai.semrep.utils.register as register
@@ -119,9 +119,9 @@ class AutoEncoder(nn.Module):
         """
         An MLP vanilla antoencoder.
         """
-        super(LinearClassifier, self).__init__()
+        super(AutoEncoder, self).__init__()
 
-        assert num_classes >= 1
+        # assert num_classes >= 1
 
         self.encoder = LinearLayers(layers=layers, dropout=dropout, norm=norm)
         self.decoder = LinearLayers(layers=layers.reverse(), dropout=dropout,
@@ -139,3 +139,60 @@ class AutoEncoder(nn.Module):
     def loss(self, y, outputs):
         recon_loss = self.criterion(outputs['X_prime'], outputs['X'])
         return {'recon_loss': recon_loss}
+
+
+class VariationalAutoEncoder(nn.Module):
+    """
+    A basic feed forward classifier architecture with configurable dropout and
+    layer-wise normalization with ~*~ variational inference ~*~.
+    """
+    def __init__(self, layers, z_size=20, dropout=0, norm='none'):
+        """
+        An MLP variational antoencoder.
+        """
+        super(VariationalAutoEncoder, self).__init__()
+
+        # assert num_classes >= 1
+
+        self.encoder = LinearLayers(layers=layers, dropout=dropout, norm=norm)
+        self.mu = LinearLayers(layers=[layers[-1], z_size])
+        self.logvar = LinearLayers(layers=[layers[-1], z_size])
+        self.decoder = LinearLayers(layers=layers.reverse(), dropout=dropout,
+                                    norm=norm)
+        self.criterion = torch.nn.MSELoss()
+
+    def embed(self, X):
+        h = self.encoder(X)
+        mu = self.mu(h)
+        logvar = self.logvar(h)
+
+        return (mu, logvar)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.rand_like(std)
+        z = mu + (std * eps)
+
+        return z
+
+    def decode(self, z):
+        X_prime = self.decoder(z)
+
+        return X_prime
+
+    def forward(self, X):
+        mu, logvar = self.embed(X)
+        z = self.reparameterize(mu, logvar)
+        X_prime = self.decoder(z)
+        return {'z': z, 'X_prime': X_prime, 'X': X}
+
+    def loss(self, y, outputs):
+        recon_loss = self.criterion(outputs['X_prime'], outputs['X'])
+        return {'recon_loss': recon_loss}
+
+
+class VariationalAutoEncoder(AutoEncoder):
+    """"""""
+    def __init__(self, layers, dropout=0, norm='none'):
+        super(VariationalAutoEncoder, self).__init__(
+            layers, dropout=dropout, norm=norm)

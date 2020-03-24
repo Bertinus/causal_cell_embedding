@@ -10,21 +10,37 @@ batch_size: 32
 shuffle: True
 
 # Dataset
+#dataset:
+#  train:
+#    MNIST:
+#      root: './data'
+#      train: True
+#      download: True
+#  valid:
+#    MNIST:
+#      root: './data'
+#      train: False
+#      download: True
 dataset:
   train:
-    MNIST:
+    L1000_basic:
       root: './data'
       train: True
       download: True
   valid:
-    MNIST:
+    L1000_basic:
       root: './data'
       train: False
       download: True
+  test:
+    root: './data'
+    train: False
+    download: True
 
 # Model
 model:
-  CNNExample: {}
+  basic_AE:
+    layers: [10, 10, 10]
 
 # Optimizer
 optimizer:
