@@ -1,4 +1,4 @@
-# causal_gene_embedding
+# causal_cell_embedding
 
 To use the spec file to create an identical **conda environment** on your machine:
 '''
