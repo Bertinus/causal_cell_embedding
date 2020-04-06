@@ -1,0 +1,34 @@
+# General
+experiment_name: test
+seed: 1234
+cuda: False
+
+# Training
+n_epochs: 2
+
+dataset:
+  train:
+    L1000_iid:
+      phase: "phase2"
+      batch_size: 16
+      restrict_to_envs_longer_than:
+  valid:
+    L1000_iid:
+      phase: "phase2"
+      batch_size: 16
+      restrict_to_envs_longer_than:
+  test:
+    L1000_iid:
+      phase: "phase2"
+      batch_size: 16
+      restrict_to_envs_longer_than:
+
+# Model
+model:
+  basic_AE:
+    layers: [978, 30, 30]
+
+# Optimizer
+optimizer:
+  Adam:
+    lr: 0.001

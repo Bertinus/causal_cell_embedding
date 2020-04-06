@@ -1,11 +1,16 @@
-from ai.cge.models.utils import generate_feedforward_layers, Dummy
-from copy import copy
 from torch.nn.utils import spectral_norm
-import ai.semrep.utils.register as register
-import importlib
+import ai.causalcell.utils.register as register
 import torch
 import torch.nn as nn
-import numpy as np
+
+
+class Dummy(torch.nn.Module):
+    """
+    Helper class that allows you to do nothing. Replaces `lambda x: x`.
+    """
+
+    def forward(self, x):
+        return x
 
 
 class LinearBatch(nn.Module):
@@ -49,7 +54,6 @@ class LinearLayers(nn.Module):
         self.linear = norm_dict[norm]
         self.dropout = nn.Dropout(dropout)
         self.activation = nn.ReLU()
-        self.activations = []
 
         arch = []
         n_layers = len(layers)
@@ -81,35 +85,7 @@ class LinearLayers(nn.Module):
         return self.embed(X)
 
 
-class LinearActivationSaver(LinearLayers):
-    """
-    A linear classifier that also saves all activations on the forward pass.
-    Useful for actdiff regularization or enforcing representation sparsity.
-    """
-    def __init__(self, layers, dropout=0, norm='none', activate_final=True,
-                 store_pre=False):
-        super(LinearActivationSaver, self).__init__(
-            layers=layers, dropout=dropout, norm=norm,
-            activate_final=activate_final, modulelist=True)
-
-        # Store the values either before or after ReLU.
-        if store_pre:
-            self.instances = (LinearBatch, LinearSpec, nn.Linear)
-        else:
-            self.instances = (nn.ReLU)
-
-    def embed(self, X):
-        self.activations = []
-
-        # Loop through layers, saving all pre/post activations.
-        for layer in self.model:
-            X = layer(X)
-            if isinstance(layer, self.instances):
-                self.activations.append(X)
-
-        return X
-
-
+@register.setmodelname('basic_AE')
 class AutoEncoder(nn.Module):
     """
     A basic feed forward classifier architecture with configurable dropout and
@@ -122,9 +98,8 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
 
         # assert num_classes >= 1
-
         self.encoder = LinearLayers(layers=layers, dropout=dropout, norm=norm)
-        self.decoder = LinearLayers(layers=layers.reverse(), dropout=dropout,
+        self.decoder = LinearLayers(layers=layers[::-1], dropout=dropout,
                                     norm=norm)
         self.criterion = torch.nn.MSELoss()
 
@@ -136,7 +111,7 @@ class AutoEncoder(nn.Module):
         X_prime = self.decoder(z)
         return {'z': z, 'X_prime': X_prime, 'X': X}
 
-    def loss(self, y, outputs):
+    def loss(self, outputs):
         recon_loss = self.criterion(outputs['X_prime'], outputs['X'])
         return {'recon_loss': recon_loss}
 
@@ -190,9 +165,9 @@ class VariationalAutoEncoder(nn.Module):
         recon_loss = self.criterion(outputs['X_prime'], outputs['X'])
         return {'recon_loss': recon_loss}
 
-
-class VariationalAutoEncoder(AutoEncoder):
-    """"""""
-    def __init__(self, layers, dropout=0, norm='none'):
-        super(VariationalAutoEncoder, self).__init__(
-            layers, dropout=dropout, norm=norm)
+#
+# class VariationalAutoEncoder(AutoEncoder):
+#     """"""""
+#     def __init__(self, layers, dropout=0, norm='none'):
+#         super(VariationalAutoEncoder, self).__init__(
+#             layers, dropout=dropout, norm=norm)

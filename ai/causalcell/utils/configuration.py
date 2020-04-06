@@ -1,13 +1,13 @@
-import ai.cge.datasets as datasets
-import ai.cge.models as models
+import ai.causalcell.datasets as datasets
+import ai.causalcell.models as models
 import collections
 import functools
 import importlib
 import inspect
 import logging
 import os
-import torchvision
 import yaml
+
 _LOG = logging.getLogger(__name__)
 
 
@@ -18,7 +18,7 @@ def flatten(d, parent_key='', sep='_'):
     items = []
     for k, v in d.items():
         new_key = parent_key + sep + k if parent_key else k
-        if isinstance(v, collections.MutableMapping):
+        if isinstance(v, collections.abc.MutableMapping):
             items.extend(flatten(v, new_key, sep=sep).items())
         else:
             items.append((new_key, v))
@@ -29,9 +29,9 @@ def merge(source, destination):
     """
     run me with nosetests --with-doctest file.py
 
-    >>> a = { 'first' : { 'all_rows' : { 'pass' : 'dog', 'number' : '1' } } }
-    >>> b = { 'first' : { 'all_rows' : { 'fail' : 'cat', 'number' : '5' } } }
-    >>> merge(b, a) == { 'first' : { 'all_rows' : { 'pass' : 'dog', 'fail' : 'cat', 'number' : '5' } } }
+    a = { 'first' : { 'all_rows' : { 'pass' : 'dog', 'number' : '1' } } }
+    b = { 'first' : { 'all_rows' : { 'fail' : 'cat', 'number' : '5' } } }
+    merge(b, a) == { 'first' : { 'all_rows' : { 'pass' : 'dog', 'fail' : 'cat', 'number' : '5' } } }
     True
     """
     for key, value in source.items():
@@ -71,10 +71,10 @@ def load_config(config_file):
 
     # Load the experiment-level config.
     with open(config_file, 'r') as f:
-        experiment_cfg = yaml.load(f)
+        experiment_cfg = yaml.load(f,  Loader=yaml.FullLoader)
 
     # If it is defined, import the base-config for the experiment.
-    if 'base' in experiment_cfg.keys() and experiment_cfg['base'] != None:
+    if 'base' in experiment_cfg.keys() and experiment_cfg['base'] is not None:
         basename = os.path.dirname(config_file)
         base_file = os.path.join(basename, experiment_cfg['base'])
         with open(base_file, 'r') as f:
@@ -119,8 +119,7 @@ def setup_model(config, yaml_section='model'):
     Prepare model according to config file.
     """
     available_models = get_available_classes(
-        models, 'ai.cge.models.', '_MODEL_NAME')
-    models_from_module = importlib.import_module('torchvision.models')
+        models, 'ai.causalcell.models.', '_MODEL_NAME')
 
     if type(yaml_section) == str and yaml_section != '':
         yaml_section = [yaml_section]
@@ -136,36 +135,29 @@ def setup_model(config, yaml_section='model'):
 
     _LOG.info('Model {} with arguments {}'.format(model_name, model_args))
 
-    if hasattr(models_from_module , model_name):
-        obj = getattr(models_from_module, model_name)
-    else:
-        obj = available_models[model_name]
+    obj = available_models[model_name]
 
     # Create the model
     model = obj(**model_args)
     return model
 
 
-def setup_dataset(config, split='train'):
+def setup_dataloader(config, split='train'):
     """
     Prepare data generators for training set and optionally for validation set.
     """
 
-    available_datasets = get_available_classes(
-        datasets, 'ai.cge.datasets.', '_DG_NAME')
-    datasets_from_module = importlib.import_module('torchvision.datasets')
+    available_dataloaders = get_available_classes(
+        datasets, 'ai.causalcell.datasets.', '_DL_NAME')
 
     dataset_name = list(config['dataset'][split].keys())[0]
     dataset_args = list(config['dataset'][split].values())[0]
 
     _LOG.info('Dataset {} with arguments {}'.format(dataset_name, dataset_args))
-    if hasattr(datasets_from_module , dataset_name):
-        obj = getattr(datasets_from_module, dataset_name)
-    else:
-        obj = available_datasets[dataset_name]
+    obj = available_dataloaders[dataset_name]
 
-    dataset = obj(**dataset_args)
-    return dataset
+    dataloader = obj(**dataset_args, split=split)
+    return dataloader
 
 
 def setup_optimizer(config, yaml_section='optimizer'):
