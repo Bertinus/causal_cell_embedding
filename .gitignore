@@ -1,6 +1,7 @@
 notebooks/.ipynb_checkpoints/
 data/L1000_PhaseII/
 data/L1000_PhaseI/
+/results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -49,3 +50,9 @@ venv.bak/
 
 # Rope project settings
 .ropeproject
+
+# Old files
+*_old.py
+*_old.yml
+/Data/Old/
+*_old
