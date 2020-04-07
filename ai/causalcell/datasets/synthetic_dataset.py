@@ -16,13 +16,19 @@ import time
 
 class SyntheticDataset(Dataset):
 
-    def __init__(self, n_hidden=15, n_observations=978, seed=0):
-        np.random.seed(seed)
-        self.graph = StructuredGraph(n_hidden=n_hidden, n_observations=n_observations)
+    def __init__(self, n_hidden=15, n_observations=978, n_examples=1000):
+        graph = StructuredGraph(n_hidden=n_hidden, n_observations=n_observations)
+        graph.generate(n_examples=n_examples)
+        self.data = graph.get_observations()
+
         return
 
     def __len__(self):
-        return len(self.Data)
+        return len(self.data)
 
     def __getitem__(self, idx):
         return
+
+
+if __name__ == "__main__":
+    ds = SyntheticDataset()

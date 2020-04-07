@@ -109,39 +109,39 @@ class AutoEncoder(nn.Module):
     def forward(self, X):
         z = self.encoder(X)
         X_prime = self.decoder(z)
-        return {'z': z, 'X_prime': X_prime, 'X': X}
+        return {'z': z, 'x_prime': X_prime, 'x': X}
 
     def loss(self, outputs):
-        recon_loss = self.criterion(outputs['X_prime'], outputs['X'])
+        recon_loss = self.criterion(outputs['x_prime'], outputs['x'])
         return {'recon_loss': recon_loss}
 
 
+@register.setmodelname('basic_VAE')
 class VariationalAutoEncoder(nn.Module):
     """
     A basic feed forward classifier architecture with configurable dropout and
     layer-wise normalization with ~*~ variational inference ~*~.
     """
-    def __init__(self, layers, z_size=20, dropout=0, norm='none'):
+    def __init__(self, layers, beta=1, dropout=0, norm='none'):
         """
         An MLP variational antoencoder.
         """
         super(VariationalAutoEncoder, self).__init__()
 
-        # assert num_classes >= 1
-
-        self.encoder = LinearLayers(layers=layers, dropout=dropout, norm=norm)
-        self.mu = LinearLayers(layers=[layers[-1], z_size])
-        self.logvar = LinearLayers(layers=[layers[-1], z_size])
-        self.decoder = LinearLayers(layers=layers.reverse(), dropout=dropout,
+        self.encoder = LinearLayers(layers=layers[:-1], dropout=dropout, norm=norm)
+        self.mu = LinearLayers(layers=[layers[-2], layers[-1]])
+        self.logvar = LinearLayers(layers=[layers[-2], layers[-1]])
+        self.decoder = LinearLayers(layers=layers[::-1], dropout=dropout,
                                     norm=norm)
-        self.criterion = torch.nn.MSELoss()
+        self.criterion = torch.nn.MSELoss(reduction='sum')
+        self.beta = beta
 
     def embed(self, X):
         h = self.encoder(X)
         mu = self.mu(h)
         logvar = self.logvar(h)
 
-        return (mu, logvar)
+        return mu, logvar
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
@@ -151,23 +151,21 @@ class VariationalAutoEncoder(nn.Module):
         return z
 
     def decode(self, z):
-        X_prime = self.decoder(z)
+        x_prime = self.decoder(z)
 
-        return X_prime
+        return x_prime
 
-    def forward(self, X):
-        mu, logvar = self.embed(X)
+    def forward(self, x):
+        mu, logvar = self.embed(x)
         z = self.reparameterize(mu, logvar)
-        X_prime = self.decoder(z)
-        return {'z': z, 'X_prime': X_prime, 'X': X}
+        x_prime = self.decoder(z)
+        return {'z': z, 'x_prime': x_prime, 'x': x, 'mu': mu, 'logvar': logvar}
 
-    def loss(self, y, outputs):
-        recon_loss = self.criterion(outputs['X_prime'], outputs['X'])
-        return {'recon_loss': recon_loss}
+    def loss(self, outputs):
+        recon_loss = self.criterion(outputs['x_prime'], outputs['x'])
+        kl_div = -0.5 * torch.sum(1 + outputs['logvar'] - outputs['mu'].pow(2) - outputs['logvar'].exp())
 
-#
-# class VariationalAutoEncoder(AutoEncoder):
-#     """"""""
-#     def __init__(self, layers, dropout=0, norm='none'):
-#         super(VariationalAutoEncoder, self).__init__(
-#             layers, dropout=dropout, norm=norm)
+        # Apply beta scaling factor
+        kl_div *= self.beta
+
+        return {'recon_loss': recon_loss, 'kl_div': kl_div}

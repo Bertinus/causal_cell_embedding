@@ -6,7 +6,8 @@ from rdkit.ML.Cluster import Butina
 from rdkit.Chem import Draw
 
 """
-Regarder : https://www.macinchem.org/reviews/clustering/clustering.php
+CLustering experiments with the fingerprints
+See : https://www.macinchem.org/reviews/clustering/clustering.php
 
 """
 

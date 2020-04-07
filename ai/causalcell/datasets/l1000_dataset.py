@@ -197,9 +197,11 @@ class L1000Sampler(Sampler):
         # Select the keys corresponding to the desired split
         keys = [train_keys, valid_keys, test_keys][['train', 'valid', 'test'].index(split)]
 
-        print("splits of size", train_length, valid_length)
-
         self.env_dict = {key: self.env_dict[key] for key in set(keys)}
+
+        print(split + " split of size",
+              [train_length, valid_length, test_length][['train', 'valid', 'test'].index(split)],
+              "with number of environments", len(self.env_dict.keys()))
 
     def iterator(self):
         raise NotImplementedError()
