@@ -1,12 +1,6 @@
 from torch.utils.data import Dataset
-import os
-import sys
-import numpy as np
 from SyntheticDataGenerator.structuredgraph import StructuredGraph
-from SyntheticDataGenerator.structural_equation import lin_hidden_max_obs_generator
-from SyntheticDataGenerator.obs_subgraph_generator import random_obs_subgraph_generator
-import matplotlib.pyplot as plt
-import time
+from torch.utils.data import DataLoader
 
 
 ########################################################################################################################
@@ -27,8 +21,18 @@ class SyntheticDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return
+        # We format all datasets to return 4-tuples
+        return self.data[idx], 0, 0, 0
+
+
+def synthetic_dataloader(n_hidden=15, n_observations=978, n_examples=1000, batch_size=16,
+                         split='train', train_val_test_prop=(0.7, 0.2, 0.1)):
+    dataset = SyntheticDataset(n_hidden=n_hidden, n_observations=n_observations, n_examples=n_examples)
+    return DataLoader(dataset, batch_size=batch_size)
 
 
 if __name__ == "__main__":
-    ds = SyntheticDataset()
+    dl = synthetic_dataloader()
+    for data in dl:
+        print(data)
+        break

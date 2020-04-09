@@ -1,33 +1,29 @@
 # General
-seed: 1234
+seed: 17
 cuda: False
 
 # Training
-n_epochs: 20
+n_epochs: 100
 
 dataset:
   train:
     L1000_iid:
       phase: "phase2"
       batch_size: 16
-      restrict_to_envs_longer_than:
+      restrict_to_envs_longer_than: 600
   valid:
     L1000_iid:
       phase: "phase2"
       batch_size: 16
-      restrict_to_envs_longer_than:
-  test:
-    L1000_iid:
-      phase: "phase2"
-      batch_size: 16
-      restrict_to_envs_longer_than:
+      restrict_to_envs_longer_than: 600
 
 # Model
 model:
   basic_AE:
-    layers: [978, 300]
+    layers: [978, 978]
+#    beta: 0.001
 
 # Optimizer
 optimizer:
   Adam:
-    lr: 0.001
+    lr: 0.0001
