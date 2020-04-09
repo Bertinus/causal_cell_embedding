@@ -100,16 +100,16 @@ class AutoEncoder(nn.Module):
         # assert num_classes >= 1
         self.encoder = LinearLayers(layers=layers, dropout=dropout, norm=norm)
         self.decoder = LinearLayers(layers=layers[::-1], dropout=dropout,
-                                    norm=norm)
-        self.criterion = torch.nn.MSELoss()
+                                    norm=norm, activate_final=False)
+        self.criterion = torch.nn.MSELoss(reduction='sum')
 
-    def embed(self, X):
-        return self.encoder(X)
+    def embed(self, x):
+        return self.encoder(x)
 
-    def forward(self, X):
-        z = self.encoder(X)
+    def forward(self, x, fingerprint=0, compound=0, line=0):
+        z = self.encoder(x)
         X_prime = self.decoder(z)
-        return {'z': z, 'x_prime': X_prime, 'x': X}
+        return {'z': z, 'x_prime': X_prime, 'x': x}
 
     def loss(self, outputs):
         recon_loss = self.criterion(outputs['x_prime'], outputs['x'])
@@ -129,10 +129,10 @@ class VariationalAutoEncoder(nn.Module):
         super(VariationalAutoEncoder, self).__init__()
 
         self.encoder = LinearLayers(layers=layers[:-1], dropout=dropout, norm=norm)
-        self.mu = LinearLayers(layers=[layers[-2], layers[-1]])
-        self.logvar = LinearLayers(layers=[layers[-2], layers[-1]])
+        self.mu = LinearLayers(layers=[layers[-2], layers[-1]], activate_final=False)
+        self.logvar = LinearLayers(layers=[layers[-2], layers[-1]], activate_final=False)
         self.decoder = LinearLayers(layers=layers[::-1], dropout=dropout,
-                                    norm=norm)
+                                    norm=norm, activate_final=False)
         self.criterion = torch.nn.MSELoss(reduction='sum')
         self.beta = beta
 
@@ -155,7 +155,7 @@ class VariationalAutoEncoder(nn.Module):
 
         return x_prime
 
-    def forward(self, x):
+    def forward(self, x, fingerprint=0, compound=0, line=0):
         mu, logvar = self.embed(x)
         z = self.reparameterize(mu, logvar)
         x_prime = self.decoder(z)

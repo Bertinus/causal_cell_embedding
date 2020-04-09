@@ -19,6 +19,7 @@ class StructuredGraph:
     Object which contains the latent DAG, as well as observable nodes, and which can generate data wrt a set of
     structural equations
     """
+    # TODO: enable noise interventions
 
     def __init__(self, n_hidden, n_observations,
                  directed_acyclic_graph_generator=gn_graph_generator,

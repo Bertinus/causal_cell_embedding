@@ -54,11 +54,12 @@ def train_epoch(model, device, train_loader, optimizer, epoch):
 
     for batch_idx, data in enumerate(train_loader):
 
-        x, compound, fingerprint, line = data
+        x, fingerprint, compound, line = data
         x = x.to(device)
+        fingerprint = fingerprint.to(device)
 
         # Expected to return a dictionary of outputs.
-        outputs = model.forward(x)
+        outputs = model.forward(x, fingerprint, compound, line)
 
         # Expected to return a dictionary of loss terms.
         losses = model.loss(outputs)
@@ -86,11 +87,12 @@ def evaluate_epoch(model, device, data_loader, epoch):
     with torch.no_grad():
         for batch_idx, data in enumerate(data_loader):
 
-            x, compound, fingerprint, line = data
+            x, fingerprint, compound, line = data
             x = x.to(device)
+            fingerprint = fingerprint.to(device)
 
             # Expected to return a dictionary of outputs.
-            outputs = model.forward(x)
+            outputs = model.forward(x, fingerprint, compound, line)
             losses = model.loss(outputs)
             all_losses.append(losses)
 
