@@ -13,6 +13,7 @@ import time
 
 paths_to_L1000_files = {
     "phase1": {
+        "path_to_dir": "Data/L1000_PhaseI",
         "path_to_data": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_Level5_COMPZ.MODZ_n473647x12328"
                         ".gctx",
         "path_to_sig_info": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_sig_info.txt",
@@ -20,6 +21,7 @@ paths_to_L1000_files = {
         "dict_path": "Data/L1000_PhaseI/non_empty_env_dict.npy",
         "path_to_pert_info": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_pert_info.txt"
     }, "phase2": {
+        "path_to_dir": "Data/L1000_PhaseII",
         "path_to_data": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/Level5_COMPZ_n118050x12328_2017-03-06.gctx",
         "path_to_sig_info": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/sig_info_2017-03-06.txt",
         "path_to_gene_info": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/gene_info_2017-03-06.txt",
@@ -83,17 +85,28 @@ class L1000Dataset(Dataset):
         print("get list landmark genes took", time.time() - seconds, "seconds")
         seconds = time.time()
 
-        # Compute fingerprints
-        # TODO: precompute fingerprints? 26 seconds with phase 1
-        self.pert_info["fps"] = self.pert_info.apply(lambda row: get_fingerprint(row["canonical_smiles"],
-                                                                                 radius, nBits), axis=1)
+        # Load fingerprints
+        fps_path = os.path.join(paths_to_L1000_files[self.phase]["path_to_dir"],
+                                "fingerprints_" + str(radius) + "_" + str(nBits) + ".pkl")
+        if os.path.isfile(fps_path):
+            fps = pd.read_pickle(fps_path)
+        else:  # If fingerprints have not been saved yet, compute them
+            fps = self.pert_info.apply(lambda row: get_fingerprint(row["canonical_smiles"], radius, nBits), axis=1)
+            fps.to_pickle(fps_path)  # Save fingerprints
+
+        self.pert_info["fps"] = fps
 
         print("compute fingerprint took", time.time() - seconds, "seconds")
         seconds = time.time()
 
         # Load all data
-        # TODO: save data as a dataframe directly? 64 seconds with phase 1
-        self.data = parse(self.path_to_data, rid=self.landmark_gene_list).data_df.T
+        df_path = os.path.join(paths_to_L1000_files[self.phase]["path_to_dir"], "dataframe.pkl")
+        if os.path.isfile(df_path):
+            self.data = pd.read_pickle(df_path)
+        else:  # If the data has not been saved yet, parse the original file and save dataframe
+            print("Parsing original data, only happens the first time...")
+            self.data = parse(self.path_to_data, rid=self.landmark_gene_list).data_df.T
+            self.data.to_pickle(df_path)
 
         print("load all data took", time.time() - seconds, "seconds")
         seconds = time.time()
@@ -174,9 +187,6 @@ class L1000Sampler(Sampler):
         :param env_dict: dict with (pert, cell) keys corresponding to desired environments
                 dict[(pert, cell)] contains the list of all corresponding sig_ids
         """
-
-        seconds = time.time()
-
         self.env_dict = env_dict
         self.length = length
         self.batch_size = batch_size
@@ -185,8 +195,6 @@ class L1000Sampler(Sampler):
             self.restrict_to_large_envs(restrict_to_envs_longer_than)
 
         self.perform_split(split, train_val_test_prop, seed=seed)
-
-        print("initialize sampler took", time.time() - seconds, "seconds")
 
     def restrict_to_large_envs(self, restrict_to_envs_longer_than):
         """
@@ -283,7 +291,7 @@ class IIDL1000Sampler(L1000Sampler):
         valid_length = int(train_val_test_prop[1] * len(all_values))
         test_length = len(all_values) - train_length - valid_length
         all_values_train = all_values[:train_length]
-        all_values_valid = all_values[train_length: train_length+valid_length]
+        all_values_valid = all_values[train_length: train_length + valid_length]
         all_values_test = all_values[-test_length:]
 
         # Select the values corresponding to the desired split
@@ -462,7 +470,6 @@ def n_env_per_batch_l1000_dataloader(phase="phase2", batch_size=16, n_env_per_ba
                                      restrict_to_envs_longer_than=None, split='train',
                                      train_val_test_prop=(0.7, 0.2, 0.1), remove_null_fingerprint_envs=True,
                                      radius=2, nBits=1024):
-
     # Initialize dataset
     dataset_args = [phase, radius, nBits, remove_null_fingerprint_envs]
     dataset = get_dataset(dataset_args)
