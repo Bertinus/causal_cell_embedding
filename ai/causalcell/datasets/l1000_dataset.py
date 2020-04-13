@@ -135,7 +135,10 @@ class L1000Dataset(Dataset):
                 del self.env_dict[k]
 
     def __len__(self):
-        return len(self.sig_info)
+        all_values = []
+        for v in self.env_dict.values():
+            all_values.extend(v)
+        return len(all_values)
 
     def __getitem__(self, sig_id):
         """
