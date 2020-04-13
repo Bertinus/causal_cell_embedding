@@ -9,7 +9,6 @@ from rdkit import Chem
 import pandas as pd
 from rdkit.Chem import AllChem
 import random
-import time
 
 paths_to_L1000_files = {
     "phase1": {
@@ -18,14 +17,12 @@ paths_to_L1000_files = {
                         ".gctx",
         "path_to_sig_info": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_sig_info.txt",
         "path_to_gene_info": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_gene_info.txt",
-        "dict_path": "Data/L1000_PhaseI/non_empty_env_dict.npy",
         "path_to_pert_info": "Data/L1000_PhaseI/GSE92742_Broad_LINCS/GSE92742_Broad_LINCS_pert_info.txt"
     }, "phase2": {
         "path_to_dir": "Data/L1000_PhaseII",
         "path_to_data": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/Level5_COMPZ_n118050x12328_2017-03-06.gctx",
         "path_to_sig_info": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/sig_info_2017-03-06.txt",
         "path_to_gene_info": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/gene_info_2017-03-06.txt",
-        "dict_path": "Data/L1000_PhaseII/non_empty_env_dict.npy",
         "path_to_pert_info": "Data/L1000_PhaseII/GSE70138_Broad_LINCS/pert_info_2017-03-06.txt"
     }}
 
@@ -59,10 +56,6 @@ class L1000Dataset(Dataset):
         :param radius: parameter for fingerprints https://www.macinchem.org/reviews/clustering/clustering.php
         :param nBits: desired length of fingerprints
         """
-
-        seconds = time.time()
-        print(phase, radius, nBits, remove_null_fingerprint_envs)
-
         assert phase in ["phase1", "phase2"]
         self.phase = phase
 
@@ -75,15 +68,9 @@ class L1000Dataset(Dataset):
         self.pert_info = pd.read_csv(paths_to_L1000_files[self.phase]["path_to_pert_info"], sep="\t",
                                      index_col="pert_id")
 
-        print("read metadata took", time.time() - seconds, "seconds")
-        seconds = time.time()
-
         # Get list of landmark genes
         gene_info = pd.read_csv(paths_to_L1000_files[self.phase]["path_to_gene_info"], sep="\t")
         self.landmark_gene_list = gene_info[gene_info['pr_is_lm'] == 1]["pr_gene_id"].astype(str)
-
-        print("get list landmark genes took", time.time() - seconds, "seconds")
-        seconds = time.time()
 
         # Load fingerprints
         fps_path = os.path.join(paths_to_L1000_files[self.phase]["path_to_dir"],
@@ -96,9 +83,6 @@ class L1000Dataset(Dataset):
 
         self.pert_info["fps"] = fps
 
-        print("compute fingerprint took", time.time() - seconds, "seconds")
-        seconds = time.time()
-
         # Load all data
         df_path = os.path.join(paths_to_L1000_files[self.phase]["path_to_dir"], "dataframe.pkl")
         if os.path.isfile(df_path):
@@ -108,31 +92,24 @@ class L1000Dataset(Dataset):
             self.data = parse(self.path_to_data, rid=self.landmark_gene_list).data_df.T
             self.data.to_pickle(df_path)
 
-        print("load all data took", time.time() - seconds, "seconds")
-        seconds = time.time()
-
         # Get dictionary of non empty environments
-        self.env_dict = self.get_non_empty_env_dict()
+        dict_path = os.path.join(paths_to_L1000_files[self.phase]["path_to_dir"], "dict_" +
+                                 str(remove_null_fingerprint_envs) + ".npy")
+        if os.path.isfile(dict_path):  # if the dict has been saved previously, load it
+            self.env_dict = np.load(dict_path, allow_pickle='TRUE').item()
+        else:
+            self.env_dict = self.build_non_empty_env_dict()
 
-        print("load dictionary took", time.time() - seconds, "seconds")
-        seconds = time.time()
+            if remove_null_fingerprint_envs:
+                self.remove_null_fingerprint_envs()
 
-        # TODO: save dictionary? 6 seconds with phase 1
-        if remove_null_fingerprint_envs:
-            self.remove_null_fingerprint_envs()
+            np.save(dict_path, self.env_dict)
 
-        print("removing null fingerprints took", time.time() - seconds, "seconds")
-
-    def get_non_empty_env_dict(self):
+    def build_non_empty_env_dict(self):
         """
         :return: dict with (pert, cell) keys corresponding to non empty environments
                 dict[(pert, cell)] contains the list of all corresponding sig_ids
         """
-        # if the dict has been saved previously, load it
-        dict_path = paths_to_L1000_files[self.phase]["dict_path"]
-        if os.path.isfile(dict_path):
-            return np.load(dict_path, allow_pickle='TRUE').item()
-
         print("Building dict of all environments, only happens the first time...")
         env_dict = {}
         for index, row in self.data.iterrows():
@@ -142,7 +119,6 @@ class L1000Dataset(Dataset):
                 env_dict[(pert, cell)].append(index)
             else:
                 env_dict[(pert, cell)] = [index]
-        np.save(dict_path, env_dict)
         return env_dict
 
     def remove_null_fingerprint_envs(self):
@@ -359,7 +335,6 @@ class LoopOverEnvsL1000Sampler(L1000Sampler):
             for sig_id in np.random.permutation(sorted(self.env_dict[(pert, cell)])):
                 batch.append(sig_id)
                 if len(batch) == self.batch_size:  # If batch is full, yield it
-                    print(pert, cell, batch)
                     yield batch
                     batch = []
             # Before moving to a new environment, yield current batch even if it is not full
@@ -421,6 +396,7 @@ def get_dataset(dataset_args):
 def iid_l1000_dataloader(phase="phase2", batch_size=16, restrict_to_envs_longer_than=None, split='train',
                          train_val_test_prop=(0.7, 0.2, 0.1), remove_null_fingerprint_envs=True, radius=2,
                          nBits=1024):
+    # TODO Optimize? Remove unnecessary shuffling
     # Initialize dataset
     dataset_args = [phase, radius, nBits, remove_null_fingerprint_envs]
     dataset = get_dataset(dataset_args)
