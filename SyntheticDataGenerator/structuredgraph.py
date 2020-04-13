@@ -2,7 +2,8 @@ import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
 
-from SyntheticDataGenerator.structural_equation import StructuralEquation, binary_lin_generator, Const
+from SyntheticDataGenerator.structural_equation import StructuralEquation, binary_lin_generator, Const, NoisyLinear, \
+    binary_noisy_lin_generator
 from SyntheticDataGenerator.dag_generator import gn_graph_generator
 from SyntheticDataGenerator.obs_subgraph_generator import random_obs_subgraph_generator
 from SyntheticDataGenerator.utils import circular_plus_obs_layout
@@ -19,12 +20,13 @@ class StructuredGraph:
     Object which contains the latent DAG, as well as observable nodes, and which can generate data wrt a set of
     structural equations
     """
+
     # TODO: enable noise interventions
 
     def __init__(self, n_hidden, n_observations,
                  directed_acyclic_graph_generator=gn_graph_generator,
                  obs_subgraph_generator=lambda g, n_obs: random_obs_subgraph_generator(g, n_obs, proba=0.2),
-                 structural_equation_generator=binary_lin_generator):
+                 structural_equation_generator=binary_lin_generator, **kwargs):
         """
         :param n_hidden: Number of hidden nodes
         :param n_observations: Number of observed nodes
@@ -45,7 +47,7 @@ class StructuredGraph:
         self.graph = nx.DiGraph(directed_acyclic_graph_generator(n_hidden))  # Make a copy to unfreeze the graph
         self.add_observation_nodes(obs_subgraph_generator)
         self.n_edges = self.graph.number_of_edges()
-        self.initialize_graph(structural_equation_generator)
+        self.initialize_graph(structural_equation_generator, **kwargs)
 
         # Used for interventions
         self.intervened_node = None
@@ -61,7 +63,7 @@ class StructuredGraph:
         nx.set_node_attributes(self.graph, dict(zip(range(self.n_nodes),
                                                     [0] * self.n_hidden + [1] * self.n_observations)), 'observation')
 
-    def initialize_graph(self, structural_equation_generator):
+    def initialize_graph(self, structural_equation_generator, **kwargs):
         """
         Initialize the graph self.graph by adding 'value' (int) attribute as well as 'structeq' (StructuralEquation)
         attribute  to each node. Also adds 'weight' attribute to each edge
@@ -73,7 +75,7 @@ class StructuredGraph:
         # Initialize edge weights to one
         nx.set_edge_attributes(self.graph, dict(zip(self.graph.edges, [1] * self.n_edges)), name='weight')
         # Add struct eq to the graph object. Edge weights are (possibly) modified by the structural equation generator
-        structeq_list = [structural_equation_generator(self.graph, i) for i in range(self.n_nodes)]
+        structeq_list = [structural_equation_generator(self.graph, i, **kwargs) for i in range(self.n_nodes)]
         nx.set_node_attributes(self.graph, dict(zip(range(self.n_nodes), structeq_list)), 'structeq')
 
     def get_observation_nodes(self):
@@ -88,7 +90,7 @@ class StructuredGraph:
         Note : Generated values are not dependent on the previous state of the graph as long as the graph is acyclic
         """
         for n in nx.topological_sort(self.graph):
-            self.graph.node[n]["structeq"].generate(n_examples)
+            self.graph.nodes[n]["structeq"].generate(n_examples)
 
     def get_observations(self, with_hidden=False):
         """
@@ -101,25 +103,39 @@ class StructuredGraph:
             return hidden, data
         return data
 
-    def set_intervention(self, node, value=0, function=Const):
+    def set_intervention(self, node, function=Const(offset=0)):
+        """
+        Intervene on the graph in a hard manner, removing all incoming edges to the intervened node
+        """
         # End previous intervention
         self.reset_intervention()
         # Save truncated part
         self.intervened_node = node
         self.truncated_edges = copy.deepcopy(self.graph.in_edges(node, data=True))
-        self.intervened_structeq = self.graph.node[node]["structeq"]
+        self.intervened_structeq = self.graph.nodes[node]["structeq"]
         # Truncate the graph
         self.graph.remove_edges_from(self.truncated_edges)
-        self.graph.node[node]["structeq"] = StructuralEquation(self.graph, node, function(offset=value))
+        self.graph.nodes[node]["structeq"] = StructuralEquation(self.graph, node, function)
 
     def reset_intervention(self):
         # Recover original graph if the graph has been intervened
         if self.intervened_node:
-            self.graph.add_edges_from(self.truncated_edges)
-            self.graph.node[self.intervened_node]["structeq"] = self.intervened_structeq
+            if self.truncated_edges:
+                self.graph.add_edges_from(self.truncated_edges)
+            self.graph.nodes[self.intervened_node]["structeq"] = self.intervened_structeq
             self.intervened_node = None
             self.truncated_edges = None
             self.intervened_structeq = None
+
+    def set_soft_intervention(self, node,
+                              function=NoisyLinear(lambda size: np.random.normal(loc=10.0, scale=1.0, size=size))):
+        """
+        Intervene on the graph in a soft manner, without removing incoming edges to the intervened node
+        """
+        self.reset_intervention()
+        self.intervened_node = node
+        self.intervened_structeq = self.graph.nodes[node]["structeq"]
+        self.graph.nodes[node]["structeq"] = StructuralEquation(self.graph, node, function)
 
     def __str__(self):
         string = "DirectedAcyclicGraph. "
@@ -127,7 +143,7 @@ class StructuredGraph:
                   + str(self.intervened_node) + "\n"
         string += "Nodes :\n"
         for i in range(len(self.graph)):
-            string += "\t node " + str(i) + " " + str(self.graph.node[i]) + "\n"
+            string += "\t node " + str(i) + " " + str(self.graph.nodes[i]) + "\n"
         string += "Edges :\n"
         for i in self.graph.edges.data():
             string += "\t edge " + str(i) + "\n"
@@ -183,9 +199,24 @@ class StructuredGraph:
 ########################################################################################################################
 
 if __name__ == "__main__":
-    G = StructuredGraph(10, 5, structural_equation_generator=binary_lin_generator)
-    np.random.seed(0)
+    G = StructuredGraph(4, 3, structural_equation_generator=binary_noisy_lin_generator, mean=0.0, var=0.01)
+    print(G)
+    np.random.seed(1)
     G.generate()
-    G.draw(show_node_name=True, show_values=True, show_eq=True, show_weights=True, colorbar=False)
+    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
     plt.show()
-    G.set_intervention(13, 0)
+    G.set_soft_intervention(3)
+    G.generate()
+    print(G)
+    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
+    plt.show()
+    G.set_soft_intervention(1)
+    G.generate()
+    print(G)
+    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
+    plt.show()
+    G.reset_intervention()
+    G.generate()
+    print(G)
+    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
+    plt.show()

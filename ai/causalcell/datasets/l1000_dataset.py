@@ -396,7 +396,6 @@ def get_dataset(dataset_args):
 def iid_l1000_dataloader(phase="phase2", batch_size=16, restrict_to_envs_longer_than=None, split='train',
                          train_val_test_prop=(0.7, 0.2, 0.1), remove_null_fingerprint_envs=True, radius=2,
                          nBits=1024):
-    # TODO Optimize? Remove unnecessary shuffling
     # Initialize dataset
     dataset_args = [phase, radius, nBits, remove_null_fingerprint_envs]
     dataset = get_dataset(dataset_args)

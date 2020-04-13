@@ -34,9 +34,9 @@ class StructuralEquation:
         return str(self.function)
 
     def generate(self, n_examples=1):
-        inputs = np.array([self.graph.node[i]['value'] for i in self.graph.predecessors(self.target)])
+        inputs = np.array([self.graph.nodes[i]['value'] for i in self.graph.predecessors(self.target)])
         edge_weights = np.array([n[2]["weight"] for n in self.graph.in_edges(nbunch=self.target, data=True)])
-        self.graph.node[self.target]['value'] = self.function.compute(inputs, edge_weights, n_examples)
+        self.graph.nodes[self.target]['value'] = self.function.compute(inputs, edge_weights, n_examples)
 
 
 ########################################################################################################################
@@ -218,15 +218,17 @@ def binary_lin_generator(graph, index):
     return StructuralEquation(graph, index, function)
 
 
-def binary_noisy_lin_generator(graph, index):
+def binary_noisy_lin_generator(graph, index, mean=0., var=1.):
     """
     :param graph: (directed acyclic) graph as a nxgraph object
     :param index: index of the target node
+    :param var:
+    :param mean:
     """
     def edge_weight_sampler(g, edges):
         return 2*np.random.binomial(1, 0.5, size=len(edges)) - 1
 
-    function = NoisyLinear()
+    function = NoisyLinear(sampler=lambda size: np.random.normal(loc=mean, scale=var, size=size))
     set_weights(graph, graph.in_edges(index), edge_weight_sampler)
 
     return StructuralEquation(graph, index, function)
