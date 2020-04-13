@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from SyntheticDataGenerator.structural_equation import StructuralEquation, binary_lin_generator, Const, NoisyLinear, \
     binary_noisy_lin_generator
-from SyntheticDataGenerator.dag_generator import gn_graph_generator
+from SyntheticDataGenerator.dag_generator import gn_graph_generator, multi_gn_graph_generator
 from SyntheticDataGenerator.obs_subgraph_generator import random_obs_subgraph_generator
 from SyntheticDataGenerator.utils import circular_plus_obs_layout
 import copy
@@ -20,9 +20,6 @@ class StructuredGraph:
     Object which contains the latent DAG, as well as observable nodes, and which can generate data wrt a set of
     structural equations
     """
-
-    # TODO: enable noise interventions
-
     def __init__(self, n_hidden, n_observations,
                  directed_acyclic_graph_generator=gn_graph_generator,
                  obs_subgraph_generator=lambda g, n_obs: random_obs_subgraph_generator(g, n_obs, proba=0.2),
@@ -199,24 +196,23 @@ class StructuredGraph:
 ########################################################################################################################
 
 if __name__ == "__main__":
-    G = StructuredGraph(4, 3, structural_equation_generator=binary_noisy_lin_generator, mean=0.0, var=0.01)
-    print(G)
+    # G = StructuredGraph(4, 3, structural_equation_generator=binary_noisy_lin_generator, mean=0.0, var=0.01)
+    G = StructuredGraph(10, 0, structural_equation_generator=binary_noisy_lin_generator,
+                        directed_acyclic_graph_generator=multi_gn_graph_generator,
+                        mean=0.0, var=0.01)
     np.random.seed(1)
     G.generate()
-    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
+    G.draw(show_node_name=True, show_values=False, show_eq=False, show_weights=True, colorbar=False)
     plt.show()
     G.set_soft_intervention(3)
     G.generate()
-    print(G)
-    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
+    G.draw(show_node_name=True, show_values=False, show_eq=False, show_weights=True, colorbar=False)
     plt.show()
-    G.set_soft_intervention(1)
-    G.generate()
-    print(G)
-    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
-    plt.show()
-    G.reset_intervention()
-    G.generate()
-    print(G)
-    G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
-    plt.show()
+    # G.set_soft_intervention(1)
+    # G.generate()
+    # G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
+    # plt.show()
+    # G.reset_intervention()
+    # G.generate()
+    # G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)
+    # plt.show()
