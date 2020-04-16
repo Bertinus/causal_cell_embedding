@@ -5,7 +5,8 @@ import torch
 import random
 import os
 import copy
-import pickle
+import dill as pickle
+# import pickle
 
 _LOG = logging.getLogger(__name__)
 
@@ -133,6 +134,11 @@ def train(cfg):
     train_loader = configuration.setup_dataloader(cfg, 'train')
     valid_loader = configuration.setup_dataloader(cfg, 'valid')
 
+    # Save the graph of the dataloader if it exists
+    data_graph = None
+    if hasattr(train_loader.dataset, "graph"):
+        data_graph = train_loader.dataset.graph
+
     best_valid_loss = np.inf
     best_model, best_epoch = None, None
     all_train_losses, all_valid_losses = [], []
@@ -153,6 +159,7 @@ def train(cfg):
 
         results = {"exp_name": exp_name,
                    "config": cfg,
+                   "data_graph": data_graph,
                    "seed": seed,
                    "losses": {"train": all_train_losses, "valid": all_valid_losses},
                    "best_epoch": best_epoch,

@@ -56,6 +56,12 @@ class SyntheticDataset(Dataset):
             else:
                 self.envs = np.concatenate((self.envs, env_representation), axis=0)
 
+        self.data = self.data.astype(np.float32)
+        self.envs = self.envs.astype(np.float32)
+
+        # Put back graph in default mode
+        self.graph.to_default_state()
+
     def __len__(self):
         return len(self.data)
 

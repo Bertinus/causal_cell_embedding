@@ -8,6 +8,7 @@ from SyntheticDataGenerator.dag_generator import gn_graph_generator, multi_gn_gr
 from SyntheticDataGenerator.obs_subgraph_generator import random_obs_subgraph_generator
 from SyntheticDataGenerator.utils import circular_plus_obs_layout
 import copy
+import pickle
 
 
 ########################################################################################################################
@@ -189,6 +190,10 @@ class StructuredGraph:
             ax.set_axis_off()
         else:
             plt.axis('off')
+
+    def to_default_state(self):
+        self.reset_intervention()
+        self.generate(1)  # To not store lots of generated data
 
 
 ########################################################################################################################
