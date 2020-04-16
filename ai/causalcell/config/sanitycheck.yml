@@ -7,13 +7,13 @@ n_epochs: 100
 
 dataset:
   train:
-    L1000_iid:
-      phase: "phase1"
+    L1000_n_env_per_batch:
+      phase: "phase2"
       batch_size: 16
       restrict_to_envs_longer_than: 600
   valid:
-    L1000_iid:
-      phase: "phase1"
+    L1000_n_env_per_batch:
+      phase: "phase2"
       batch_size: 16
       restrict_to_envs_longer_than: 600
 
