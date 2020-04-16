@@ -19,6 +19,7 @@ setup(
         'console_scripts': [
             'ai.causalcell = ai.causalcell.main:main'
         ]
-    }, install_requires=['click', 'skopt', 'tqdm', 'numpy', 'torch', 'PyYAML', 'pandas', 'rdkit', 'cmapPy', 'networkx']
+    }, install_requires=['click', 'skopt', 'tqdm', 'numpy', 'torch', 'PyYAML', 'pandas', 'rdkit', 'cmapPy', 'networkx',
+                         'matplotlib']
 
 )

@@ -351,7 +351,7 @@ class NEnvPerBatchL1000Sampler(L1000Sampler):
     Each batch contains samples from randomly drawn n_env_per_batch distinct environments
     """
 
-    def __init__(self, env_dict, length, batch_size, n_env_per_batch=1, restrict_to_envs_longer_than=None,
+    def __init__(self, env_dict, length, batch_size, n_env_per_batch=3, restrict_to_envs_longer_than=None,
                  split='train', train_val_test_prop=(0.7, 0.2, 0.1)):
         """
         :param n_env_per_batch: Number of environments per batch
@@ -363,19 +363,17 @@ class NEnvPerBatchL1000Sampler(L1000Sampler):
     def iterator(self):
         keys = np.random.permutation(sorted(list(self.env_dict.keys())))
         env_cpt = 0
-        while True:
-            batch = []
+        while env_cpt < len(keys):
             # Note that an epoch will correspond to seeing all environments once but not all samples
-            if env_cpt >= len(keys):
-                break
+            batch = []
             # choose indices specific to several environments and add them to the batch list
-            for env in range(self.n_env_per_batch):
+            for _ in range(self.n_env_per_batch):
                 if env_cpt >= len(keys):
                     break
                 pert, cell = keys[env_cpt]  # Select the next environment to be added to the batch list
                 env_cpt += 1
                 # Add self.min_size_of_envs examples to the batch list
-                batch.extend(np.random.permutation(sorted(self.env_dict[(pert, cell)])[:self.min_size_of_envs]))
+                batch.extend(np.random.permutation(sorted(self.env_dict[(pert, cell)]))[:self.min_size_of_envs])
             # Choose batch_size elements at random in the batch list
             yield np.random.permutation(batch)[:self.batch_size]
 
