@@ -2,6 +2,7 @@ notebooks/.ipynb_checkpoints/
 data/L1000_PhaseII/
 data/L1000_PhaseI/
 /results/
+/ai/causalcell/config/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
