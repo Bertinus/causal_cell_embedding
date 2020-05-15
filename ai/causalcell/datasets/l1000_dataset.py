@@ -146,7 +146,7 @@ class L1000Dataset(Dataset):
         :return: a 4 tuple (x, fingerprint, pert_id, cell_id)
         """
         return self.data.loc[sig_id].to_numpy(), \
-               self.pert_info.fps.loc[self.sig_info.pert_id.loc[sig_id]], \
+               self.pert_info.fps.loc[self.sig_info.pert_id.loc[sig_id]].astype(np.float32), \
                self.sig_info.pert_id.loc[sig_id], \
                self.sig_info.cell_id.loc[sig_id]
 
@@ -160,15 +160,16 @@ class L1000Sampler(Sampler):
     Sampler class used to loop over the dataset while taking into account environments
     """
 
-    def __init__(self, env_dict, length, batch_size, restrict_to_envs_longer_than=None, split='train',
+    def __init__(self, env_dict, batch_size, restrict_to_envs_longer_than=None, split='train',
                  train_val_test_prop=(0.7, 0.2, 0.1), seed=0):
         """
         :param env_dict: dict with (pert, cell) keys corresponding to desired environments
                 dict[(pert, cell)] contains the list of all corresponding sig_ids
         """
         self.env_dict = env_dict
-        self.length = length
         self.batch_size = batch_size
+        self.n_samples = 0
+        self.n_envs_in_split = 0
 
         if restrict_to_envs_longer_than is not None:
             self.restrict_to_large_envs(restrict_to_envs_longer_than)
@@ -225,9 +226,10 @@ class L1000Sampler(Sampler):
 
         self.env_dict = {key: self.env_dict[key] for key in set(keys)}
 
-        print(split + " split of size",
-              [train_length, valid_length, test_length][['train', 'valid', 'test'].index(split)],
-              "with number of environments", len(self.env_dict.keys()))
+        self.n_samples = [train_length, valid_length, test_length][['train', 'valid', 'test'].index(split)]
+        self.n_envs_in_split = len(self.env_dict.keys())
+
+        print(split + " split of size", self.n_samples, "with number of environments", self.n_envs_in_split)
 
     def iterator(self):
         raise NotImplementedError()
@@ -236,7 +238,7 @@ class L1000Sampler(Sampler):
         return self.iterator()
 
     def __len__(self):
-        return self.length
+        return self.n_samples // self.batch_size
 
 
 class IIDL1000Sampler(L1000Sampler):
@@ -244,10 +246,10 @@ class IIDL1000Sampler(L1000Sampler):
     IID sampler
     """
 
-    def __init__(self, env_dict, length, batch_size, restrict_to_envs_longer_than=None, split='train',
+    def __init__(self, env_dict, batch_size, restrict_to_envs_longer_than=None, split='train',
                  train_val_test_prop=(0.7, 0.2, 0.1)):
         self.split_values = None
-        super().__init__(env_dict, length, batch_size, restrict_to_envs_longer_than, split, train_val_test_prop)
+        super().__init__(env_dict, batch_size, restrict_to_envs_longer_than, split, train_val_test_prop)
 
     def perform_split(self, split, train_val_test_prop, seed):
         """
@@ -277,6 +279,9 @@ class IIDL1000Sampler(L1000Sampler):
         self.split_values = \
             [all_values_train, all_values_valid, all_values_test][['train', 'valid', 'test'].index(split)]
 
+        self.n_samples = len(self.split_values)
+        self.n_envs_in_split = len(self.env_dict.keys())
+
         print(split + " split of size", len(self.split_values), "without taking environment into account")
 
     def iterator(self):
@@ -297,9 +302,9 @@ class IIDEnvSplitL1000Sampler(L1000Sampler):
     Sampler with splitting per environment, but the data is then shuffled within each split
     """
 
-    def __init__(self, env_dict, length, batch_size, restrict_to_envs_longer_than=None, split='train',
+    def __init__(self, env_dict, batch_size, restrict_to_envs_longer_than=None, split='train',
                  train_val_test_prop=(0.7, 0.2, 0.1)):
-        super().__init__(env_dict, length, batch_size, restrict_to_envs_longer_than, split, train_val_test_prop)
+        super().__init__(env_dict, batch_size, restrict_to_envs_longer_than, split, train_val_test_prop)
 
     def iterator(self):
         # Convert list of lists to list
@@ -325,9 +330,9 @@ class LoopOverEnvsL1000Sampler(L1000Sampler):
     yields all samples from that environment
     """
 
-    def __init__(self, env_dict, length, batch_size, restrict_to_envs_longer_than=None, split='train',
+    def __init__(self, env_dict, batch_size, restrict_to_envs_longer_than=None, split='train',
                  train_val_test_prop=(0.7, 0.2, 0.1)):
-        super().__init__(env_dict, length, batch_size, restrict_to_envs_longer_than, split, train_val_test_prop)
+        super().__init__(env_dict, batch_size, restrict_to_envs_longer_than, split, train_val_test_prop)
 
     def iterator(self):
         keys = np.random.permutation(sorted(list(self.env_dict.keys())))
@@ -351,14 +356,14 @@ class NEnvPerBatchL1000Sampler(L1000Sampler):
     Each batch contains samples from randomly drawn n_env_per_batch distinct environments
     """
 
-    def __init__(self, env_dict, length, batch_size, n_env_per_batch=3, restrict_to_envs_longer_than=None,
+    def __init__(self, env_dict, batch_size, n_env_per_batch=3, restrict_to_envs_longer_than=None,
                  split='train', train_val_test_prop=(0.7, 0.2, 0.1)):
         """
         :param n_env_per_batch: Number of environments per batch
         """
         self.n_env_per_batch = n_env_per_batch
         self.min_size_of_envs = restrict_to_envs_longer_than
-        super().__init__(env_dict, length, batch_size, restrict_to_envs_longer_than, split, train_val_test_prop)
+        super().__init__(env_dict, batch_size, restrict_to_envs_longer_than, split, train_val_test_prop)
 
     def iterator(self):
         keys = np.random.permutation(sorted(list(self.env_dict.keys())))
@@ -402,7 +407,7 @@ def iid_l1000_dataloader(phase="phase2", batch_size=16, restrict_to_envs_longer_
     dataset = get_dataset(dataset_args)
 
     # Initialize sampler
-    sampler_args = [dataset.env_dict, len(dataset), batch_size, restrict_to_envs_longer_than,
+    sampler_args = [dataset.env_dict, batch_size, restrict_to_envs_longer_than,
                     split, train_val_test_prop]
     sampler = IIDL1000Sampler(*sampler_args)
 
@@ -418,7 +423,7 @@ def iid_env_split_l1000_dataloader(phase="phase2", batch_size=16, restrict_to_en
     dataset = get_dataset(dataset_args)
 
     # Initialize sampler
-    sampler_args = [dataset.env_dict, len(dataset), batch_size, restrict_to_envs_longer_than,
+    sampler_args = [dataset.env_dict, batch_size, restrict_to_envs_longer_than,
                     split, train_val_test_prop]
     sampler = IIDEnvSplitL1000Sampler(*sampler_args)
 
@@ -434,7 +439,7 @@ def loop_over_envs_l1000_dataloader(phase="phase2", batch_size=16, restrict_to_e
     dataset = get_dataset(dataset_args)
 
     # Initialize sampler
-    sampler_args = [dataset.env_dict, len(dataset), batch_size, restrict_to_envs_longer_than,
+    sampler_args = [dataset.env_dict, batch_size, restrict_to_envs_longer_than,
                     split, train_val_test_prop]
     sampler = LoopOverEnvsL1000Sampler(*sampler_args)
 
@@ -451,7 +456,7 @@ def n_env_per_batch_l1000_dataloader(phase="phase2", batch_size=16, n_env_per_ba
     dataset = get_dataset(dataset_args)
 
     # Initialize sampler
-    sampler_args = [dataset.env_dict, len(dataset), batch_size, n_env_per_batch, restrict_to_envs_longer_than,
+    sampler_args = [dataset.env_dict, batch_size, n_env_per_batch, restrict_to_envs_longer_than,
                     split, train_val_test_prop]
     sampler = NEnvPerBatchL1000Sampler(*sampler_args)
 
