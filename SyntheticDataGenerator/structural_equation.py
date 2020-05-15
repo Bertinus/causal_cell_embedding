@@ -62,7 +62,6 @@ class Max(StructuralFunction):
     def __init__(self, offset=0):
         super().__init__()
         self.offset = offset
-        return
 
     def __str__(self):
         return "max"
@@ -80,7 +79,6 @@ class Min(StructuralFunction):
     def __init__(self, offset=0):
         super().__init__()
         self.offset = offset
-        return
 
     def __str__(self):
         return "min"
@@ -98,7 +96,6 @@ class Const(StructuralFunction):
     def __init__(self, offset):
         super().__init__()
         self.offset = offset
-        return
 
     def __str__(self):
         return "const"
@@ -114,7 +111,6 @@ class Linear(StructuralFunction):
     def __init__(self, offset=0):
         super().__init__()
         self.offset = offset
-        return
 
     def __str__(self):
         return "linear"
@@ -126,6 +122,27 @@ class Linear(StructuralFunction):
         if edge_weights.shape[0] == 0:
             return np.array([self.offset]*n_examples)
         return edge_weights[None, :].dot(inputs)[0, :] + np.array([self.offset]*n_examples)
+
+
+class NeuralNet(StructuralFunction):
+    """
+    One hidden layer Neural Network with ReLU activation
+    """
+    def __init__(self, n_hidden_neurons):
+        super().__init__()
+        self.n_hidden_neurons = n_hidden_neurons
+
+    def __str__(self):
+        return "nn " + str(self.n_hidden_neurons) + "h"
+
+    def __repr__(self):
+        return "nn " + str(self.n_hidden_neurons) + "h"
+
+    def compute(self, inputs, edge_weights=None, n_examples=1):
+        if edge_weights.shape[0] == 0:
+            return np.array([0]*n_examples)
+        activations = np.maximum(edge_weights[:, :self.n_hidden_neurons].T.dot(inputs), 0)
+        return edge_weights[:, self.n_hidden_neurons:].dot(activations)[0]
 
 
 class Noise(StructuralFunction):
@@ -243,11 +260,59 @@ def lin_hidden_max_obs_generator(graph, index):
     def edge_weight_sampler(g, edges):
         return np.random.normal(loc=0.0, scale=1.0, size=len(edges))
 
-    if graph.node[index]['observation'] == 0:
+    if graph.nodes[index]['observation'] == 0:
         set_weights(graph, graph.in_edges(index), edge_weight_sampler)
         return StructuralEquation(graph, index, function=NoisyLinear())
 
     return StructuralEquation(graph, index, function=Max())
+
+
+def noisy_lin_hidden_lin_obs_generator(graph, index, mean=0., var=1.):
+    """
+    Linear equations for hidden nodes and max for observed ones
+    :param var:
+    :param mean:
+    :param graph: (directed acyclic) graph as a nxgraph object
+    :param index: index of the target node
+    """
+    def edge_weight_sampler(g, edges):
+        return 2*np.random.binomial(1, 0.5, size=len(edges)) - 1
+
+    if graph.nodes[index]['observation'] == 1:
+        function = Linear()
+    else:
+        function = NoisyLinear(sampler=lambda size: np.random.normal(loc=mean, scale=var, size=size))
+
+    set_weights(graph, graph.in_edges(index), edge_weight_sampler)
+
+    return StructuralEquation(graph, index, function)
+
+
+def noisy_lin_hidden_neural_net_obs_generator(graph, index, n_hidden_neurons=3, mean=0., var=1.):
+    """
+    Linear equations for hidden nodes and max for observed ones
+    :param n_hidden_neurons:
+    :param var:
+    :param mean:
+    :param graph: (directed acyclic) graph as a nxgraph object
+    :param index: index of the target node
+    """
+
+    if graph.nodes[index]['observation'] == 1:
+        function = NeuralNet(n_hidden_neurons)
+
+        def edge_weight_sampler(g, edges):
+            return 2 * np.random.binomial(1, 0.5, size=(len(edges), 2*n_hidden_neurons)) - 1
+
+    else:
+        function = NoisyLinear(sampler=lambda size: np.random.normal(loc=mean, scale=var, size=size))
+
+        def edge_weight_sampler(g, edges):
+            return 2 * np.random.binomial(1, 0.5, size=len(edges)) - 1
+
+    set_weights(graph, graph.in_edges(index), edge_weight_sampler)
+
+    return StructuralEquation(graph, index, function)
 
 
 ########################################################################################################################

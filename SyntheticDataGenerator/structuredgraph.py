@@ -3,12 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from SyntheticDataGenerator.structural_equation import StructuralEquation, binary_lin_generator, Const, NoisyLinear, \
-    binary_noisy_lin_generator
+    binary_noisy_lin_generator, noisy_lin_hidden_neural_net_obs_generator
 from SyntheticDataGenerator.dag_generator import gn_graph_generator, multi_gn_graph_generator
 from SyntheticDataGenerator.obs_subgraph_generator import random_obs_subgraph_generator
 from SyntheticDataGenerator.utils import circular_plus_obs_layout
 import copy
-import pickle
 
 
 ########################################################################################################################
@@ -162,11 +161,14 @@ class StructuredGraph:
         """
         pos = layout(self)
         # Print only first example of values for each node
-        values = [i[0] for i in nx.get_node_attributes(self.graph, 'value').values()]
+        values = [i[0] if isinstance(i[0], np.float64) else i[0][0]
+                  for i in nx.get_node_attributes(self.graph, 'value').values()]
+        width = [2 * w if isinstance(w, np.int64) else 2 * w[0]
+                 for w in list(nx.get_edge_attributes(self.graph, "weight").values())]
 
         nc = nx.draw_networkx_nodes(self.graph, pos, node_color=values, cmap=plt.cm.autumn, ax=ax)
         nx.draw_networkx_edges(self.graph, pos,
-                               width=[2 * w for w in list(nx.get_edge_attributes(self.graph, "weight").values())],
+                               width=width,
                                ax=ax)
         if colorbar:
             plt.colorbar(nc)
@@ -202,17 +204,16 @@ class StructuredGraph:
 
 if __name__ == "__main__":
     # G = StructuredGraph(4, 3, structural_equation_generator=binary_noisy_lin_generator, mean=0.0, var=0.01)
-    G = StructuredGraph(10, 0, structural_equation_generator=binary_noisy_lin_generator,
+    G = StructuredGraph(4, 6, structural_equation_generator=noisy_lin_hidden_neural_net_obs_generator,
                         directed_acyclic_graph_generator=multi_gn_graph_generator,
-                        mean=0.0, var=0.01)
-    np.random.seed(1)
-    G.generate()
-    G.draw(show_node_name=True, show_values=False, show_eq=False, show_weights=True, colorbar=False)
+                        mean=0.0, var=1)
+    G.generate(2)
+    G.draw(show_node_name=True, show_values=True, show_eq=True, show_weights=True, colorbar=False)
     plt.show()
-    G.set_soft_intervention(3)
-    G.generate()
-    G.draw(show_node_name=True, show_values=False, show_eq=False, show_weights=True, colorbar=False)
-    plt.show()
+    # G.set_soft_intervention(3)
+    # G.generate()
+    # G.draw(show_node_name=True, show_values=False, show_eq=False, show_weights=True, colorbar=False)
+    # plt.show()
     # G.set_soft_intervention(1)
     # G.generate()
     # G.draw(show_node_name=False, show_values=True, show_eq=False, show_weights=True, colorbar=False)

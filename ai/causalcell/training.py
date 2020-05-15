@@ -1,4 +1,5 @@
 import ai.causalcell.utils.configuration as configuration
+import ai.causalcell.datasets.synthetic_dataset as sd
 import logging
 import numpy as np
 import torch
@@ -6,7 +7,8 @@ import random
 import os
 import copy
 import dill as pickle
-# import pickle
+
+# from ai.causalcell.datasets.synthetic_dataset import global_graph
 
 _LOG = logging.getLogger(__name__)
 
@@ -32,17 +34,17 @@ def save_results(results, output_dir):
         os.makedirs(output_dir)
 
     # Save best model
-    output_name = "best_model_{}.pth.tar".format(results["seed"])
+    output_name = "best_model_{}.pth.tar".format(results["exp_id"])
     torch.save(results["best_model"].state_dict(), os.path.join(output_dir, output_name))
 
     # Save last model
-    output_name = "last_model_{}.pth.tar".format(results["seed"])
+    output_name = "last_model_{}.pth.tar".format(results["exp_id"])
     torch.save(results["last_model"].state_dict(), os.path.join(output_dir, output_name))
 
     # Save the rest of the results dictionary
     del results["best_model"]
     del results["last_model"]
-    output_name = "results_{}.pkl".format(results["seed"])
+    output_name = "results_{}.pkl".format(results["exp_id"])
     with open(os.path.join(output_dir, output_name), 'wb') as f:
         pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -117,11 +119,19 @@ def train(cfg):
     optimization.
     """
     exp_name = cfg['experiment_name']
+    exp_id = cfg['exp_id']
     n_epochs = cfg['n_epochs']
     seed = cfg['seed']
     output_dir = os.path.join('results', cfg['experiment_name'])
+    early_stopping = cfg['early_stopping']
+    patience_max = cfg['patience_max']
+    patience = 0
 
     set_seed(seed)
+
+    # dataloader
+    valid_loader = configuration.setup_dataloader(cfg, 'valid')
+    train_loader = configuration.setup_dataloader(cfg, 'train')
 
     device = 'cuda' if cfg['cuda'] else 'cpu'
     model = configuration.setup_model(cfg).to(device)
@@ -129,15 +139,6 @@ def train(cfg):
 
     print('model: \n{}'.format(model))
     print('optimizer: {}'.format(optim))
-
-    # dataloader
-    train_loader = configuration.setup_dataloader(cfg, 'train')
-    valid_loader = configuration.setup_dataloader(cfg, 'valid')
-
-    # Save the graph of the dataloader if it exists
-    data_graph = None
-    if hasattr(train_loader.dataset, "graph"):
-        data_graph = train_loader.dataset.graph
 
     best_valid_loss = np.inf
     best_model, best_epoch = None, None
@@ -156,14 +157,24 @@ def train(cfg):
         if valid_loss < best_valid_loss:
             best_model = copy.deepcopy(model)
             best_epoch = epoch
+            best_valid_loss = valid_loss
+        else:
+            patience += 1
+            if early_stopping and patience > patience_max:
+                break
 
         results = {"exp_name": exp_name,
                    "config": cfg,
-                   "data_graph": data_graph,
+                   "data_graph": sd.global_graph,
                    "seed": seed,
+                   "exp_id": exp_id,
+                   "n_envs_in_split": {"train": train_loader.batch_sampler.n_envs_in_split,
+                                       "valid": valid_loader.batch_sampler.n_envs_in_split},
+                   "n_samples_in_split": {"train": train_loader.batch_sampler.n_samples,
+                                          "valid": valid_loader.batch_sampler.n_samples},
                    "losses": {"train": all_train_losses, "valid": all_valid_losses},
                    "best_epoch": best_epoch,
                    "best_model": best_model,
                    "last_model": model}
 
-        save_results(results, output_dir)
+    save_results(results, output_dir)

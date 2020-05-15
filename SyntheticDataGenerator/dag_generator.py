@@ -6,6 +6,10 @@ import networkx as nx
 import numpy as np
 
 
+def empty_graph_generator(n):
+    return nx.empty_graph(n)
+
+
 def gn_graph_generator(n, seed=0):
     return nx.gn_graph(n, seed=seed).reverse(copy=False)
 
