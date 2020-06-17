@@ -2,7 +2,8 @@ from torch.utils.data import Dataset
 from SyntheticDataGenerator.structuredgraph import StructuredGraph
 from torch.utils.data import DataLoader
 from SyntheticDataGenerator.structural_equation import binary_noisy_lin_generator, NoisyLinear, \
-    noisy_lin_hidden_lin_obs_generator, noisy_lin_hidden_neural_net_obs_generator
+    noisy_lin_hidden_lin_obs_generator, noisy_lin_hidden_neural_net_obs_generator, binary_noisy_lin_generator, \
+    binary_lin_generator
 from SyntheticDataGenerator.dag_generator import multi_gn_graph_generator, gn_graph_generator, empty_graph_generator
 from SyntheticDataGenerator.obs_subgraph_generator import random_obs_subgraph_generator
 import numpy as np
@@ -11,13 +12,11 @@ import matplotlib.pyplot as plt
 import ai.causalcell.utils.register as register
 import random
 
-# """Dict of synthetic datasets that will be initialized with the relevant dataset objects if necessary so that all
-# dataloaders use the same dataset object when possible, in order to instantiate only one."""
-# dict_of_synthetic_datasets = {}
-
 dag_generator_dict = {"multi_gn": multi_gn_graph_generator, "gn": gn_graph_generator, "empty": empty_graph_generator}
 struct_eq_generator_dict = {"noisy_lin_hidden_lin_obs": noisy_lin_hidden_lin_obs_generator,
-                            "noisy_lin_hidden_neural_net_obs_generator": noisy_lin_hidden_neural_net_obs_generator}
+                            "binary_noisy_lin_generator": binary_noisy_lin_generator,
+                            "noisy_lin_hidden_neural_net_obs_generator": noisy_lin_hidden_neural_net_obs_generator,
+                            "binary_lin_generator": binary_lin_generator}
 
 global_graph = None  # We want all datasets to use the same graph
 global_graph_params = None
@@ -31,7 +30,8 @@ global_graph_params = None
 class SyntheticDataset(Dataset):
 
     def __init__(self, n_hidden=15, n_observations=978, n_examples_per_env=1000, n_envs=100, attach_proba=0.2,
-                 dag_generator="multi_gn", struct_eq_gen="noisy_lin_hidden_lin_obs"):
+                 dag_generator="multi_gn", struct_eq_gen="noisy_lin_hidden_lin_obs",
+                 inter_nodes=None, inter_shifts=None):
 
         assert dag_generator in dag_generator_dict.keys()
         assert struct_eq_gen in struct_eq_generator_dict.keys()
@@ -58,10 +58,23 @@ class SyntheticDataset(Dataset):
             assert global_graph_params == str((n_hidden, n_observations, attach_proba, dag_generator, struct_eq_gen)), \
                 'Graph parameters must be the same for all datasets'
 
+        # If inter_nodes and inter_shifts are specified, the environments will be generated accordingly
+        self.inter_nodes = None
+        self.inter_shifts = None
+        if inter_nodes is not None:
+            assert len(inter_nodes) == n_envs
+            assert len(inter_shifts) == n_envs
+            self.inter_nodes = inter_nodes
+            self.inter_shifts = inter_shifts
+
         # Create data corresponding to different environments
         for _ in range(n_envs):
-            inter_node = np.random.randint(n_hidden)  # Choose a variable to intervene on
-            inter_shift = np.random.normal(loc=0.0, scale=5.0)  # Choose shift applied to the intervened variable
+            if self.inter_nodes is None:
+                inter_node = np.random.randint(n_hidden)  # Choose a variable to intervene on
+                inter_shift = np.random.normal(loc=0.0, scale=5.0)  # Choose shift applied to the intervened variable
+            else:
+                inter_node = self.inter_nodes[_]
+                inter_shift = self.inter_shifts[_]
 
             # Intervene on the graph
             global_graph.set_soft_intervention(inter_node, function=NoisyLinear(
@@ -96,7 +109,7 @@ class SyntheticDataset(Dataset):
         We format all datasets to return 4-tuples
         :return: a 4 tuple (x, fingerprint, pert_id, cell_id)
         """
-        return self.data[idx], self.envs[idx], 0, 0
+        return self.data[idx], self.envs[idx], self.envs[idx], 0
 
 
 ########################################################################################################################
@@ -332,9 +345,10 @@ def iid_synthetic_dataloader(n_hidden=15, n_observations=978, n_examples_per_env
 def iid_env_split_synthetic_dataloader(n_hidden=15, n_observations=978, n_examples_per_env=1000, n_envs=100,
                                        attach_proba=0.2, batch_size=16, split='train',
                                        train_val_test_prop=(0.7, 0.2, 0.1), dag_generator="multi_gn",
-                                       struct_eq_gen="noisy_lin_hidden_lin_obs"):
+                                       struct_eq_gen="noisy_lin_hidden_lin_obs", inter_nodes=None, inter_shifts=None):
     # Initialize dataset
-    dataset_args = [n_hidden, n_observations, n_examples_per_env, n_envs, attach_proba, dag_generator, struct_eq_gen]
+    dataset_args = [n_hidden, n_observations, n_examples_per_env, n_envs, attach_proba, dag_generator, struct_eq_gen,
+                    inter_nodes, inter_shifts]
     dataset = SyntheticDataset(*dataset_args)
 
     # Initialize sampler
@@ -348,9 +362,10 @@ def iid_env_split_synthetic_dataloader(n_hidden=15, n_observations=978, n_exampl
 def loop_over_envs_synthetic_dataloader(n_hidden=15, n_observations=978, n_examples_per_env=1000, n_envs=100,
                                         attach_proba=0.2, batch_size=16, split='train',
                                         train_val_test_prop=(0.7, 0.2, 0.1), dag_generator="multi_gn",
-                                        struct_eq_gen="noisy_lin_hidden_lin_obs"):
+                                        struct_eq_gen="noisy_lin_hidden_lin_obs", inter_nodes=None, inter_shifts=None):
     # Initialize dataset
-    dataset_args = [n_hidden, n_observations, n_examples_per_env, n_envs, attach_proba, dag_generator, struct_eq_gen]
+    dataset_args = [n_hidden, n_observations, n_examples_per_env, n_envs, attach_proba, dag_generator, struct_eq_gen,
+                    inter_nodes, inter_shifts]
     dataset = SyntheticDataset(*dataset_args)
 
     # Initialize sampler
@@ -364,9 +379,10 @@ def loop_over_envs_synthetic_dataloader(n_hidden=15, n_observations=978, n_examp
 def n_env_per_batch_synthetic_dataloader(n_hidden=15, n_observations=978, n_examples_per_env=1000, n_envs=100,
                                          attach_proba=0.2, batch_size=16, split='train', n_env_per_batch=3,
                                          train_val_test_prop=(0.7, 0.2, 0.1), dag_generator="multi_gn",
-                                         struct_eq_gen="noisy_lin_hidden_lin_obs"):
+                                         struct_eq_gen="noisy_lin_hidden_lin_obs", inter_nodes=None, inter_shifts=None):
     # Initialize dataset
-    dataset_args = [n_hidden, n_observations, n_examples_per_env, n_envs, attach_proba, dag_generator, struct_eq_gen]
+    dataset_args = [n_hidden, n_observations, n_examples_per_env, n_envs, attach_proba, dag_generator, struct_eq_gen,
+                    inter_nodes, inter_shifts]
     dataset = SyntheticDataset(*dataset_args)
 
     # Initialize sampler

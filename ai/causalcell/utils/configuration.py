@@ -138,7 +138,10 @@ def setup_model(config, yaml_section='model'):
     obj = available_models[model_name]
 
     # Create the model
-    model = obj(**model_args)
+    if model_args:
+        model = obj(**model_args)
+    else:
+        model = obj()
     return model
 
 
