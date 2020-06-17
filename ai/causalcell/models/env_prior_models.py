@@ -3,6 +3,7 @@ import ai.causalcell.utils.register as register
 import torch
 from ai.causalcell.models.autoencoder import VariationalAutoEncoder
 import torch.nn as nn
+import copy
 
 
 @register.setmodelname('env_mu_prior_VAE')
@@ -11,10 +12,12 @@ class EnvironmentMuPriorVariationalAutoEncoder(VariationalAutoEncoder):
     VAE that adapts to each environment by modifying the mean of the prior in latent space based on environment
     """
 
-    def __init__(self, enc_layers, dec_layers, aux_layers, beta=1, dropout=0, norm='none', softmax=False,
+    def __init__(self, enc_layers, dec_layers, aux_layers, beta=1, dropout=0, norm='none', softmax=True,
                  temperature=1):
-        enc_layers[0] += aux_layers[0]  # The encoder has to take the fingerprint as input
-        super(EnvironmentMuPriorVariationalAutoEncoder, self).__init__(enc_layers, dec_layers,
+        self.enc_layers = copy.deepcopy(enc_layers)
+        self.dec_layers = copy.deepcopy(dec_layers)
+        self.enc_layers[0] += aux_layers[0]  # The encoder has to take the fingerprint as input
+        super(EnvironmentMuPriorVariationalAutoEncoder, self).__init__(self.enc_layers, self.dec_layers,
                                                                        beta=beta, dropout=dropout, norm=norm)
         if softmax:
             self.softmax = nn.Softmax(dim=1)
@@ -57,7 +60,7 @@ class EnvironmentPriorVariationalAutoEncoder(EnvironmentMuPriorVariationalAutoEn
     in latent space based on environment
     """
 
-    def __init__(self, enc_layers, dec_layers, aux_layers, beta=1, dropout=0, norm='none', softmax=False,
+    def __init__(self, enc_layers, dec_layers, aux_layers, beta=1, dropout=0, norm='none', softmax=True,
                  temperature=1):
         super(EnvironmentPriorVariationalAutoEncoder, self).__init__(enc_layers, dec_layers, aux_layers, beta=beta,
                                                                      dropout=dropout, norm=norm, softmax=softmax,

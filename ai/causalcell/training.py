@@ -69,11 +69,12 @@ def train_epoch(model, device, train_loader, optimizer, epoch):
         all_losses.append(losses)
 
         # Optimization.
-        optimizer.zero_grad()
         loss = sum(losses.values())
         all_loss.append(loss.detach())
-        loss.backward()
-        optimizer.step()
+        if optimizer is not None:
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
     all_loss = np.array(all_loss).mean()
     print('epoch {} Mean train loss: {:.4f}'.format(
@@ -135,7 +136,10 @@ def train(cfg):
 
     device = 'cuda' if cfg['cuda'] else 'cpu'
     model = configuration.setup_model(cfg).to(device)
-    optim = configuration.setup_optimizer(cfg)(model.parameters())
+    if len(list(model.parameters())) == 0:
+        optim = None
+    else:
+        optim = configuration.setup_optimizer(cfg)(model.parameters())
 
     print('model: \n{}'.format(model))
     print('optimizer: {}'.format(optim))
