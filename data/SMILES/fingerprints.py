@@ -4,6 +4,7 @@ from rdkit.Chem import AllChem
 from rdkit import DataStructs
 from rdkit.ML.Cluster import Butina
 from rdkit.Chem import Draw
+import numpy as np
 
 """
 CLustering experiments with the fingerprints
@@ -34,7 +35,13 @@ if __name__ == "__main__":
     ms = [Chem.MolFromSmiles(smile) for smile in A["canonical_smiles"].unique()]
     ms = [i for i in ms if i]  # Remove None values
     # fp = Chem.RDKFingerprint(m, fpSize=256, maxPath=4)
-    fps = [AllChem.GetMorganFingerprintAsBitVect(x, 2, 1024) for x in ms]
+    fps = [AllChem.GetMorganFingerprintAsBitVect(x, 4, 2048) for x in ms]
+
+    for i in range(30):
+        print(np.count_nonzero(np.array(fps[i])), np.array(fps[i]))
+
+    quit()
+
     clusters = cluster_fps(fps, cutoff=0.8)  # Original cutoff: 0.4
     print("Number of clusters", len(clusters))
 
