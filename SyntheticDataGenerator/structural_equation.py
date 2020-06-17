@@ -146,9 +146,9 @@ class NeuralNet(StructuralFunction):
 
 
 class Noise(StructuralFunction):
-    def __init__(self, sampler=lambda size: np.random.normal(loc=0.0, scale=1.0, size=size), offset=0):
+    def __init__(self, mean=0., var=1., offset=0):
         super().__init__()
-        self.sampler = sampler
+        self.sampler = lambda size: np.random.normal(loc=mean, scale=var, size=size)
         self.offset = offset
         return
 
@@ -217,7 +217,7 @@ def lin_generator(graph, index):
     return StructuralEquation(graph, index, function)
 
 
-def binary_lin_generator(graph, index):
+def binary_lin_generator(graph, index, mean=0., var=1.):
     """
     :param graph: (directed acyclic) graph as a nxgraph object
     :param index: index of the target node
@@ -230,7 +230,7 @@ def binary_lin_generator(graph, index):
 
     # If a node has no parent, generate noise
     if len(list(graph.predecessors(index))) == 0:
-        function = Noise()
+        function = Noise(mean=mean, var=var)
 
     return StructuralEquation(graph, index, function)
 
