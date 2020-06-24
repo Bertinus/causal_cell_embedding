@@ -1,0 +1,47 @@
+# Test all models in a simple setting
+# General
+generic:
+  exp_id: [10, 11, 12]
+  seed: [1, 2, 3]
+exp_id: 10
+seed: 1
+cuda: False
+
+# Training
+n_epochs: 100
+
+# Early stopping
+early_stopping: True
+patience_max: 5
+
+dataset:
+  train:
+    L1000_iid_env_split:
+      phase: "both"
+      batch_size: 64
+      radius: 8
+      nBits: 1024
+#      restrict_to_envs_longer_than: 10
+      train_val_test_prop: !!python/tuple [0.7,0.2,0.1]
+  valid:
+    L1000_iid_env_split:
+      phase: "both"
+      batch_size: 64
+      radius: 8
+      nBits: 1024
+#      restrict_to_envs_longer_than: 10
+      train_val_test_prop: !!python/tuple [0.7,0.2,0.1]
+
+# Model
+model:
+  basic_AE:
+    enc_layers: [978, 300]
+    dec_layers: [300, 978]
+#    condition_dim: 1024
+#    aux_layers: [1024, 200]
+#    beta: 0.0001
+
+# Optimizer
+optimizer:
+  Adam:
+    lr: 0.0001
