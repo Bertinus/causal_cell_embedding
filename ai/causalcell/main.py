@@ -37,5 +37,9 @@ def train(config):
         training.train(cfg)
 
 
+def main():
+    run()
+
+
 if __name__ == '__main__':
     train()
