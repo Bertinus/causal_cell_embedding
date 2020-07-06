@@ -36,7 +36,7 @@ model:
   env_prior_VAE:
     enc_layers: [978, 500, 300]
     dec_layers: [300, 500, 978]
-    aux_layers: [1024, 300]
+    aux_layers: [1180, 500, 300]
     beta: 1
 
 # Optimizer

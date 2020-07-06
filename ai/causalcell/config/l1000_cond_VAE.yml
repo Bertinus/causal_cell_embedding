@@ -36,7 +36,7 @@ model:
   conditional_VAE:
     enc_layers: [978, 500, 300]
     dec_layers: [300, 500, 978]
-    condition_dim: 1024
+    condition_dim: 1180
     beta: 1
 
 # Optimizer
