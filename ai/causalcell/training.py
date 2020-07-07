@@ -157,8 +157,8 @@ def train(cfg):
 
         valid_loss, valid_losses = evaluate_epoch(model=model, device=device, data_loader=valid_loader, epoch=epoch)
 
-        all_train_losses.append(train_loss)  # train_losses
-        all_valid_losses.append(valid_loss)  # valid_losses
+        all_train_losses.append(train_losses)
+        all_valid_losses.append(valid_losses)
 
         if valid_loss < best_valid_loss:
             best_model = copy.deepcopy(model)
