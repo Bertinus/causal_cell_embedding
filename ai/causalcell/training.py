@@ -55,7 +55,7 @@ def train_epoch(model, device, train_loader, optimizer, epoch):
 
     model.train()
 
-    all_loss, all_losses = [], []
+    all_loss, all_losses = [], None
 
     for batch_idx, data in enumerate(train_loader):
 
@@ -68,7 +68,12 @@ def train_epoch(model, device, train_loader, optimizer, epoch):
 
         # Expected to return a dictionary of loss terms.
         losses = model.loss(outputs)
-        all_losses.append({i: losses[i].detach().cpu().numpy() for i in losses.keys()})
+
+        if all_losses is None:
+            all_losses = {i: [losses[i].detach().cpu().item()] for i in losses.keys()}
+        else:
+            for i in losses.keys():
+                all_losses[i].append(losses[i].detach().cpu().item())
 
         # Optimization.
         loss = sum(losses.values())
@@ -88,7 +93,7 @@ def train_epoch(model, device, train_loader, optimizer, epoch):
 def evaluate_epoch(model, device, data_loader, epoch):
     """Evaluates a given model on given data."""
     model.eval()
-    all_loss, all_losses = [], []
+    all_loss, all_losses = [], None
 
     with torch.no_grad():
         for batch_idx, data in enumerate(data_loader):
@@ -100,7 +105,12 @@ def evaluate_epoch(model, device, data_loader, epoch):
             # Expected to return a dictionary of outputs.
             outputs = model.forward(x, fingerprint, compound, line)
             losses = model.loss(outputs)
-            all_losses.append({i: losses[i].detach().cpu().numpy() for i in losses.keys()})
+
+            if all_losses is None:
+                all_losses = {i: [losses[i].detach().cpu().item()] for i in losses.keys()}
+            else:
+                for i in losses.keys():
+                    all_losses[i].append(losses[i].detach().cpu().item())
 
             # Sum up batch loss.
             loss = sum(losses.values())
