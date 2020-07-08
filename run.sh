@@ -11,7 +11,7 @@ echo "Running experiments using: $(which python)"
 #ln -s $SLURM_TMPDIR/L1000_PhaseI ~/Documents/causal_cell_embedding/Data/L1000_PhaseI
 #ln -s $SLURM_TMPDIR/L1000_PhaseII ~/Documents/causal_cell_embedding/Data/L1000_PhaseII
 
-echo "Finished copying the dataset on local node"
+#echo "Finished copying the dataset on local node"
 
 ai.causalcell train --config ai/causalcell/config/l1000_env_prior_VAE.yml
 
