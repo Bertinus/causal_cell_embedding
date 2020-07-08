@@ -1,6 +1,7 @@
 notebooks/.ipynb_checkpoints/
 data/L1000_PhaseII/
 data/L1000_PhaseI/
+/Data/DRKG/
 /results/
 
 # Byte-compiled / optimized / DLL files
@@ -57,3 +58,4 @@ venv.bak/
 /Data/Old/
 *_old
 /Notebooks/Old/
+
