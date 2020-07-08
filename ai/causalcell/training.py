@@ -169,19 +169,19 @@ def train(cfg):
             if early_stopping and patience > patience_max:
                 break
 
-        results = {"exp_name": exp_name,
-                   "config": cfg,
-                   "data_graph": sd.global_graph,
-                   "seed": seed,
-                   "exp_id": exp_id,
-                   "n_envs_in_split": {"train": train_loader.batch_sampler.n_envs_in_split,
-                                       "valid": valid_loader.batch_sampler.n_envs_in_split},
-                   "n_samples_in_split": {"train": train_loader.batch_sampler.n_samples,
-                                          "valid": valid_loader.batch_sampler.n_samples},
-                   "losses": {"train": all_train_losses, "valid": all_valid_losses},
-                   "best_epoch": best_epoch,
-                   "best_model": best_model.to('cpu'),
-                   "last_model": model.to('cpu')}
+    results = {"exp_name": exp_name,
+               "config": cfg,
+               "data_graph": sd.global_graph,
+               "seed": seed,
+               "exp_id": exp_id,
+               "n_envs_in_split": {"train": train_loader.batch_sampler.n_envs_in_split,
+                                   "valid": valid_loader.batch_sampler.n_envs_in_split},
+               "n_samples_in_split": {"train": train_loader.batch_sampler.n_samples,
+                                      "valid": valid_loader.batch_sampler.n_samples},
+               "losses": {"train": all_train_losses, "valid": all_valid_losses},
+               "best_epoch": best_epoch,
+               "best_model": best_model.to('cpu'),
+               "last_model": model.to('cpu')}
 
     save_results(results, output_dir)
 
