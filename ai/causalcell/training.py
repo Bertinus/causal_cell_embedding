@@ -68,7 +68,7 @@ def train_epoch(model, device, train_loader, optimizer, epoch):
 
         # Expected to return a dictionary of loss terms.
         losses = model.loss(outputs)
-        all_losses.append(losses)
+        all_losses.append({i: losses[i].detach().cpu().numpy() for i in losses.keys()})
 
         # Optimization.
         loss = sum(losses.values())
@@ -100,7 +100,7 @@ def evaluate_epoch(model, device, data_loader, epoch):
             # Expected to return a dictionary of outputs.
             outputs = model.forward(x, fingerprint, compound, line)
             losses = model.loss(outputs)
-            all_losses.append(losses)
+            all_losses.append({i: losses[i].detach().cpu().numpy() for i in losses.keys()})
 
             # Sum up batch loss.
             loss = sum(losses.values())
@@ -180,8 +180,8 @@ def train(cfg):
                                           "valid": valid_loader.batch_sampler.n_samples},
                    "losses": {"train": all_train_losses, "valid": all_valid_losses},
                    "best_epoch": best_epoch,
-                   "best_model": best_model,
-                   "last_model": model}
+                   "best_model": best_model.to('cpu'),
+                   "last_model": model.to('cpu')}
 
     save_results(results, output_dir)
 
