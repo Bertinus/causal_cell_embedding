@@ -111,6 +111,8 @@ class L1000Dataset(Dataset):
         else:  # If the data has not been saved yet, parse the original file and save dataframe
             print("Parsing original data, only happens the first time...")
             data = parse(path_to_data, rid=self.landmark_gene_list).data_df.T
+            # Ensure that the order of columns corresponds to landmark_gene_list
+            data = data[self.landmark_gene_list]
             # Remove rows that are not in sig_info
             data = data[data.index.isin(self.sig_info.index)]
 
