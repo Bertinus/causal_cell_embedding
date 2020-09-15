@@ -4,7 +4,8 @@ from torch.utils.data import DataLoader
 from SyntheticDataGenerator.structural_equation import binary_noisy_lin_generator, NoisyLinear, \
     noisy_lin_hidden_lin_obs_generator, noisy_lin_hidden_neural_net_obs_generator, binary_noisy_lin_generator, \
     binary_lin_generator
-from SyntheticDataGenerator.dag_generator import multi_gn_graph_generator, gn_graph_generator, empty_graph_generator
+from SyntheticDataGenerator.dag_generator import multi_gn_graph_generator, gn_graph_generator, empty_graph_generator, \
+    hierarchical_generator
 from SyntheticDataGenerator.obs_subgraph_generator import random_obs_subgraph_generator
 import numpy as np
 from torch.utils.data.sampler import Sampler
@@ -12,7 +13,8 @@ import matplotlib.pyplot as plt
 import ai.causalcell.utils.register as register
 import random
 
-dag_generator_dict = {"multi_gn": multi_gn_graph_generator, "gn": gn_graph_generator, "empty": empty_graph_generator}
+dag_generator_dict = {"multi_gn": multi_gn_graph_generator, "gn": gn_graph_generator, "empty": empty_graph_generator,
+                      "hierarchical": hierarchical_generator}
 struct_eq_generator_dict = {"noisy_lin_hidden_lin_obs": noisy_lin_hidden_lin_obs_generator,
                             "binary_noisy_lin_generator": binary_noisy_lin_generator,
                             "noisy_lin_hidden_neural_net_obs_generator": noisy_lin_hidden_neural_net_obs_generator,
@@ -77,15 +79,16 @@ class SyntheticDataset(Dataset):
                 inter_shift = self.inter_shifts[_]
 
             # Intervene on the graph
-            global_graph.set_soft_intervention(inter_node, function=NoisyLinear(
-                lambda size: np.random.normal(loc=inter_shift, scale=1.0, size=size)))
+            global_graph.set_soft_intervention(inter_node, inter_shift)
 
             # Generate data
             global_graph.generate(n_examples=n_examples_per_env)
             if self.data is None:
-                self.data = global_graph.get_observations()
+                self.hidden, self.data = global_graph.get_observations(with_hidden=True)
             else:
-                self.data = np.concatenate((self.data, global_graph.get_observations()), axis=0)
+                hidden, data = global_graph.get_observations(with_hidden=True)
+                self.data = np.concatenate((self.data, data), axis=0)
+                self.hidden = np.concatenate((self.hidden, hidden), axis=0)
 
             # Compute representation of the environment
             env_representation = np.zeros((n_examples_per_env, n_hidden))
@@ -96,6 +99,7 @@ class SyntheticDataset(Dataset):
                 self.envs = np.concatenate((self.envs, env_representation), axis=0)
 
         self.data = self.data.astype(np.float32)
+        self.hidden = self.hidden.astype(np.float32)
         self.envs = self.envs.astype(np.float32)
 
         # Put back graph in default mode
@@ -109,7 +113,7 @@ class SyntheticDataset(Dataset):
         We format all datasets to return 4-tuples
         :return: a 4 tuple (x, fingerprint, pert_id, cell_id)
         """
-        return self.data[idx], self.envs[idx], self.envs[idx], 0
+        return self.data[idx], self.envs[idx], self.envs[idx], self.hidden[idx]
 
 
 ########################################################################################################################

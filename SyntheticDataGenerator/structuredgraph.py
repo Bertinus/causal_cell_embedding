@@ -49,7 +49,7 @@ class StructuredGraph:
         # Used for interventions
         self.intervened_node = None
         self.truncated_edges = None
-        self.intervened_structeq = None
+        self.intervened_structeq_fct = None
 
     def add_observation_nodes(self, obs_subgraph_generator):
         """
@@ -100,39 +100,41 @@ class StructuredGraph:
             return hidden, data
         return data
 
-    def set_intervention(self, node, function=Const(offset=0)):
-        """
-        Intervene on the graph in a hard manner, removing all incoming edges to the intervened node
-        """
-        # End previous intervention
-        self.reset_intervention()
-        # Save truncated part
-        self.intervened_node = node
-        self.truncated_edges = copy.deepcopy(self.graph.in_edges(node, data=True))
-        self.intervened_structeq = self.graph.nodes[node]["structeq"]
-        # Truncate the graph
-        self.graph.remove_edges_from(self.truncated_edges)
-        self.graph.nodes[node]["structeq"] = StructuralEquation(self.graph, node, function)
+    # def set_intervention(self, node, function=Const(offset=0)):
+    #     """
+    #     Intervene on the graph in a hard manner, removing all incoming edges to the intervened node
+    #     """
+    #     # End previous intervention
+    #     self.reset_intervention()
+    #     # Save truncated part
+    #     self.intervened_node = node
+    #     self.truncated_edges = copy.deepcopy(self.graph.in_edges(node, data=True))
+    #     self.intervened_structeq = self.graph.nodes[node]["structeq"]
+    #     # Truncate the graph
+    #     self.graph.remove_edges_from(self.truncated_edges)
+    #     self.graph.nodes[node]["structeq"] = StructuralEquation(self.graph, node, function)
 
     def reset_intervention(self):
         # Recover original graph if the graph has been intervened
-        if self.intervened_node:
+        if self.intervened_node is not None:
             if self.truncated_edges:
                 self.graph.add_edges_from(self.truncated_edges)
-            self.graph.nodes[self.intervened_node]["structeq"] = self.intervened_structeq
+            self.graph.nodes[self.intervened_node]["structeq"].function = self.intervened_structeq_fct
             self.intervened_node = None
             self.truncated_edges = None
-            self.intervened_structeq = None
+            self.intervened_structeq_fct = None
 
-    def set_soft_intervention(self, node,
-                              function=NoisyLinear(lambda size: np.random.normal(loc=10.0, scale=1.0, size=size))):
+    def set_soft_intervention(self, node, shift):
         """
-        Intervene on the graph in a soft manner, without removing incoming edges to the intervened node
+        Intervene on the graph by adding a shift to the intervened node,
+        without removing incoming edges to the intervened node
         """
         self.reset_intervention()
         self.intervened_node = node
-        self.intervened_structeq = self.graph.nodes[node]["structeq"]
-        self.graph.nodes[node]["structeq"] = StructuralEquation(self.graph, node, function)
+        self.intervened_structeq_fct = self.graph.nodes[node]["structeq"].function
+        new_structeq_fct = copy.deepcopy(self.intervened_structeq_fct)
+        new_structeq_fct.offset = shift
+        self.graph.nodes[node]["structeq"].function = new_structeq_fct
 
     def __str__(self):
         string = "DirectedAcyclicGraph. "

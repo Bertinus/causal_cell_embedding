@@ -95,3 +95,57 @@ class LinearLayers(nn.Module):
 
     def forward(self, x):
         return self.embed(x)
+
+
+class LateralLinearLayers(nn.Module):
+    """
+    A feedforward network whose input has size depth * k.
+    For layer i, the output of the previous layer is added to input[i * k: (i+1) * k] and fed to layer i
+    """
+
+    def __init__(self, layers, dropout=0, norm='none', modulelist=False,
+                 bias=True, activate_final=True):
+        super(LateralLinearLayers, self).__init__()
+
+        assert 0 <= dropout < 1
+
+        self.dropout = nn.Dropout(dropout)
+        self.activation = nn.ReLU()
+
+        arch = []
+        n_layers = len(layers)
+        for i in range(n_layers - 1):
+            arch.append(nn.Linear(layers[i], layers[i + 1], bias=bias))
+
+        # Allows for the linear layer to be a passthrough in the case that
+        # the number of layers requested is empty or a single value.
+        if len(arch) > 0:
+            self.model = nn.ModuleList(arch)
+        else:
+            self.model = Dummy()
+
+    def embed(self, x, fingerprint):
+        results = []
+        cpt = 0
+        for layer in self.model:
+            if cpt == 0:  # Just for the first layer
+                v = x[:, 0][:, None] + fingerprint[:, 0][:, None]  # value of the first variable in latent SCM
+                results = v
+                act = layer(v)
+                cpt += 1
+            elif type(layer) == nn.modules.linear.Linear:
+                v = act + x[:, cpt][:, None] + fingerprint[:, cpt][:, None]  # value of the ith variable in latent SCM
+                results = torch.cat((results, v), dim=1)
+                act = layer(v)
+                cpt += 1
+            else:
+                act = layer(act)
+
+        # Add the last variable to results
+        v = act + x[:, cpt][:, None] + fingerprint[:, cpt][:, None]
+        results = torch.cat((results, v), dim=1)
+
+        return results
+
+    def forward(self, x, fingerprint):
+        return self.embed(x, fingerprint)

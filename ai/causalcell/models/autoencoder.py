@@ -1,28 +1,54 @@
 from ai.causalcell.models.utils import *
 import ai.causalcell.utils.register as register
+import ai.causalcell.utils.configuration as configuration
 import torch
 import torch.nn as nn
 import copy
 
 
+class BasicModel(nn.Module):
+    def __init__(self):
+        super(BasicModel, self).__init__()
+
+    def forward_backward_update(self, x, fingerprint=0, compound=0, line=0, device='cpu'):
+
+        outputs = self.forward(x, fingerprint, compound, line)
+        losses = self.loss(outputs)
+        loss = sum(losses.values())
+
+        self.rec_optimizer.zero_grad()
+        loss.backward()
+        self.rec_optimizer.step()
+
+        return loss, losses
+
+    def forward_loss(self, x, fingerprint=0, compound=0, line=0, device='cpu'):
+        outputs = self.forward(x, fingerprint, compound, line)
+        losses = self.loss(outputs)
+        loss = sum(losses.values())
+
+        return loss, losses
+
+
 @register.setmodelname('basic_AE')
-class AutoEncoder(nn.Module):
+class AutoEncoder(BasicModel):
     """
     A basic feed forward classifier architecture with configurable dropout and
     layer-wise normalization.
     """
 
-    def __init__(self, enc_layers, dec_layers, dropout=0, norm='none'):
+    def __init__(self, enc_layers, dec_layers, optimizer_params, dropout=0, norm='none'):
         """
         An MLP vanilla antoencoder.
         """
         super(AutoEncoder, self).__init__()
 
-        # assert num_classes >= 1
         self.encoder = LinearLayers(layers=enc_layers, dropout=dropout, norm=norm, activate_final=False)
         self.decoder = LinearLayers(layers=dec_layers, dropout=dropout,
                                     norm=norm, activate_final=False)
         self.criterion = torch.nn.MSELoss(reduction='sum')
+
+        self.rec_optimizer = configuration.setup_optimizer(optimizer_params['rec_optimizer'])(self.parameters())
 
     def embed(self, x):
         return self.encoder(x)
@@ -38,13 +64,13 @@ class AutoEncoder(nn.Module):
 
 
 @register.setmodelname('basic_VAE')
-class VariationalAutoEncoder(nn.Module):
+class VariationalAutoEncoder(BasicModel):
     """
     A basic feed forward classifier architecture with configurable dropout and
     layer-wise normalization with ~*~ variational inference ~*~.
     """
 
-    def __init__(self, enc_layers, dec_layers, beta=1, dropout=0, norm='none'):
+    def __init__(self, enc_layers, dec_layers, optimizer_params, beta=1, dropout=0, norm='none'):
         """
         An MLP variational antoencoder.
         """
@@ -58,6 +84,8 @@ class VariationalAutoEncoder(nn.Module):
         self.criterion = torch.nn.MSELoss(reduction='sum')
         self.beta = beta
 
+        self.rec_optimizer = configuration.setup_optimizer(optimizer_params['rec_optimizer'])(self.parameters())
+
     def embed(self, X):
         h = self.encoder(X)
         mu = self.mu(h)
@@ -67,7 +95,7 @@ class VariationalAutoEncoder(nn.Module):
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
-        eps = torch.rand_like(std)
+        eps = torch.randn_like(std)
         z = mu + (std * eps)
 
         return z
@@ -141,14 +169,14 @@ class ConditionalVariationalAutoEncoder(VariationalAutoEncoder):
     A MLP conditional VAE
     """
 
-    def __init__(self, enc_layers, dec_layers, condition_dim, beta=1, dropout=0, norm='none'):
+    def __init__(self, enc_layers, dec_layers, condition_dim,  optimizer_params, beta=1, dropout=0, norm='none'):
         self.enc_layers = copy.deepcopy(enc_layers)
         self.dec_layers = copy.deepcopy(dec_layers)
         # Define layers for the encoder and decoder, which have to take environment in input as well
         self.enc_layers[0] += condition_dim
         self.dec_layers[0] += condition_dim
 
-        super(ConditionalVariationalAutoEncoder, self).__init__(self.enc_layers, self.dec_layers,
+        super(ConditionalVariationalAutoEncoder, self).__init__(self.enc_layers, self.dec_layers,  optimizer_params,
                                                                 beta=beta, dropout=dropout, norm=norm)
 
     def forward(self, x, fingerprint, compound=0, line=0):
@@ -159,7 +187,7 @@ class ConditionalVariationalAutoEncoder(VariationalAutoEncoder):
 
 
 @register.setmodelname('mean_activation_model')
-class MeanActivationModel(nn.Module):
+class MeanActivationModel(BasicModel):
     """
     A simple model that predicts the average activation (on the data seen so far) for each gene
     """

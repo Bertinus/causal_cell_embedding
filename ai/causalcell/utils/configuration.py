@@ -7,6 +7,7 @@ import inspect
 import logging
 import os
 import yaml
+from skopt.space import Real, Integer, Categorical
 
 _LOG = logging.getLogger(__name__)
 
@@ -163,17 +164,12 @@ def setup_dataloader(config, split='train'):
     return dataloader
 
 
-def setup_optimizer(config, yaml_section='optimizer'):
+def setup_optimizer(sub_section):
     """
     Prepare optimizer according to configuration file
     """
 
     optimizer_module = importlib.import_module('torch.optim')
-
-    if type(yaml_section) == str and yaml_section != '':
-        yaml_section = [yaml_section]
-    sub_section = functools.reduce(
-        lambda sub_dict, key: sub_dict.get(key), yaml_section, config)
     optimizer_name = list(sub_section.keys())[0]
     optimizer_args = list(sub_section.values())[0]
 

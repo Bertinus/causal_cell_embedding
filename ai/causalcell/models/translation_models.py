@@ -13,8 +13,8 @@ class TranslationVariationalAutoEncoder(VariationalAutoEncoder):
     The prior in latent space depends on the translation (after the translation is applied)
     """
 
-    def __init__(self, enc_layers, dec_layers, aux_layers, beta=1, dropout=0, norm='none', softmax=True,
-                 temperature=1):
+    def __init__(self, enc_layers, dec_layers, aux_layers, optimizer_params,
+                 beta=1, dropout=0, norm='none', softmax=True, temperature=1):
         """
         :param softmax: if True, a softmax is used to normalize env_mu so that the absolute values of env_mu sum to 1
         :param temperature: temperature of the softmax
@@ -22,7 +22,7 @@ class TranslationVariationalAutoEncoder(VariationalAutoEncoder):
         self.enc_layers = copy.deepcopy(enc_layers)
         self.dec_layers = copy.deepcopy(dec_layers)
         self.enc_layers[0] += aux_layers[0]  # The encoder has to take the fingerprint as input
-        super(TranslationVariationalAutoEncoder, self).__init__(self.enc_layers, self.dec_layers,
+        super(TranslationVariationalAutoEncoder, self).__init__(self.enc_layers, self.dec_layers, optimizer_params,
                                                                 beta=beta, dropout=dropout, norm=norm)
         if softmax:
             self.softmax = nn.Softmax(dim=1)
@@ -42,6 +42,7 @@ class TranslationVariationalAutoEncoder(VariationalAutoEncoder):
         env_mu = alpha * env_mu  # Make mu sparse
         z = self.reparameterize(mu, logvar)
         x_prime = self.decoder(z + env_mu)
+
         return {'z': z, 'x_prime': x_prime, 'x': x, 'mu': mu, 'logvar': logvar,
                 'env_mu': env_mu}
 

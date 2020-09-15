@@ -24,3 +24,12 @@ def multi_gn_graph_generator(n, max_parents=3):
         parent_edge_list = [(p, i) for p in parents]
         g.add_edges_from(parent_edge_list)
     return g
+
+
+def hierarchical_generator(n):
+    g = nx.DiGraph()
+    g.add_node(0)
+    for i in range(1, n):
+        g.add_node(i)
+        g.add_edges_from([(i-1, i)])
+    return g

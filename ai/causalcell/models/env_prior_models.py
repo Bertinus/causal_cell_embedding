@@ -12,20 +12,24 @@ class EnvironmentMuPriorVariationalAutoEncoder(VariationalAutoEncoder):
     VAE that adapts to each environment by modifying the mean of the prior in latent space based on environment
     """
 
-    def __init__(self, enc_layers, dec_layers, aux_layers, beta=1, dropout=0, norm='none', softmax=True,
-                 temperature=1):
+    def __init__(self, enc_layers, dec_layers, aux_layers, optimizer_params,
+                 beta=1, dropout=0, norm='none', softmax=True,
+                 temperature=1, temp_decay=0.9999):
         self.enc_layers = copy.deepcopy(enc_layers)
         self.dec_layers = copy.deepcopy(dec_layers)
         self.enc_layers[0] += aux_layers[0]  # The encoder has to take the fingerprint as input
         super(EnvironmentMuPriorVariationalAutoEncoder, self).__init__(self.enc_layers, self.dec_layers,
+                                                                       optimizer_params,
                                                                        beta=beta, dropout=dropout, norm=norm)
         if softmax:
             self.softmax = nn.Softmax(dim=1)
             self.temperature = temperature
+            self.temp_decay = temp_decay
         else:
             if temperature != 1:
                 print("If Softmax is False, Temperature is set to 1")
             self.temperature = 1
+            self.temp_decay = 1
             self.softmax = Dummy()
 
         self.env_prior_mu = LinearLayers(layers=aux_layers, dropout=dropout, norm=norm, activate_final=False)
@@ -37,6 +41,9 @@ class EnvironmentMuPriorVariationalAutoEncoder(VariationalAutoEncoder):
         env_mu = alpha * env_mu  # Make mu sparse
         z = self.reparameterize(mu, logvar)
         x_prime = self.decoder(z)
+
+        self.temperature *= self.temp_decay
+
         return {'z': z, 'x_prime': x_prime, 'x': x, 'mu': mu, 'logvar': logvar,
                 'env_mu': env_mu}
 
@@ -51,6 +58,112 @@ class EnvironmentMuPriorVariationalAutoEncoder(VariationalAutoEncoder):
         kl_div *= self.beta
 
         return {'recon_loss': recon_loss, 'kl_div': kl_div}
+
+
+@register.setmodelname('env_mu_prior_film_VAE')
+class EnvironmentMuPriorFilmVariationalAutoEncoder(VariationalAutoEncoder):
+    """
+    VAE that adapts to each environment by modifying the mean of the prior in latent space based on environment
+    """
+
+    def __init__(self, enc_layers, dec_layers, aux_layers, film_layers, optimizer_params,
+                 beta=1, dropout=0, norm='none', softmax=True,
+                 temperature=1, temp_decay=0.9999):
+        self.enc_layers = copy.deepcopy(enc_layers)
+        self.dec_layers = copy.deepcopy(dec_layers)
+        super(EnvironmentMuPriorFilmVariationalAutoEncoder, self).__init__(self.enc_layers, self.dec_layers,
+                                                                       optimizer_params,
+                                                                       beta=beta, dropout=dropout, norm=norm)
+        if softmax:
+            self.softmax = nn.Softmax(dim=1)
+            self.temperature = temperature
+            self.temp_decay = temp_decay
+        else:
+            if temperature != 1:
+                print("If Softmax is False, Temperature is set to 1")
+            self.temperature = 1
+            self.temp_decay = 1
+            self.softmax = Dummy()
+
+        self.env_prior_mu = LinearLayers(layers=aux_layers, dropout=dropout, norm=norm, activate_final=False)
+
+        self.film = LinearLayers(layers=film_layers, dropout=dropout, norm=norm, activate_final=False)
+
+    def forward(self, x, fingerprint, compound=0, line=0):
+        mu, logvar = self.embed(x, fingerprint)
+        env_mu = self.env_prior_mu(fingerprint)
+        alpha = self.softmax(1 / self.temperature * torch.abs(env_mu))
+        env_mu = alpha * env_mu  # Make mu sparse
+        z = self.reparameterize(mu, logvar)
+        x_prime = self.decoder(z)
+
+        self.temperature *= self.temp_decay
+
+        return {'z': z, 'x_prime': x_prime, 'x': x, 'mu': mu, 'logvar': logvar,
+                'env_mu': env_mu}
+
+    def embed(self, X, fingerprint):
+        h = X
+        for i in range(len(self.encoder.model)):
+            h = self.encoder.model[i](h)
+            if type(self.encoder.model[i]) == nn.modules.linear.Linear:
+                # Aplly normalization conditioned on fingerprint
+                film_norm = self.film(fingerprint)
+                h *= film_norm[:, 0, None]
+                h += film_norm[:, 1, None]
+
+        mu = self.mu(h)
+        logvar = self.logvar(h)
+
+        return mu, logvar
+
+    def loss(self, outputs):
+        recon_loss = self.criterion(outputs['x_prime'], outputs['x'])
+
+        # The KL div is computed wrt the environment specific prior
+        kl_div = - 0.5 * torch.sum(1 + outputs['logvar'] - (outputs['mu'] - outputs['env_mu']).pow(2)
+                                   - outputs['logvar'].exp())
+
+        # Apply beta scaling factor
+        kl_div *= self.beta
+
+        return {'recon_loss': recon_loss, 'kl_div': kl_div}
+
+
+@register.setmodelname('env_mu_prior_no_input_VAE')
+class EnvMuPriorNoInputVariationalAutoEncoder(EnvironmentMuPriorVariationalAutoEncoder):
+    def __init__(self, enc_layers, dec_layers, aux_layers, optimizer_params, beta=1, dropout=0, norm='none',
+                 softmax=True, temperature=1, temp_decay=0.9999):
+        self.enc_layers = copy.deepcopy(enc_layers)
+        self.dec_layers = copy.deepcopy(dec_layers)
+        super(EnvironmentMuPriorVariationalAutoEncoder, self).__init__(self.enc_layers, self.dec_layers,
+                                                                       optimizer_params,
+                                                                       beta=beta, dropout=dropout, norm=norm)
+        if softmax:
+            self.softmax = nn.Softmax(dim=1)
+            self.temperature = temperature
+            self.temp_decay = temp_decay
+        else:
+            if temperature != 1:
+                print("If Softmax is False, Temperature is set to 1")
+            self.temperature = 1
+            self.temp_decay = 1
+            self.softmax = Dummy()
+
+        self.env_prior_mu = LinearLayers(layers=aux_layers, dropout=dropout, norm=norm, activate_final=False)
+
+    def forward(self, x, fingerprint, compound=0, line=0):
+        mu, logvar = self.embed(x)
+        env_mu = self.env_prior_mu(fingerprint)
+        alpha = self.softmax(1 / self.temperature * torch.abs(env_mu))
+        env_mu = alpha * env_mu  # Make mu sparse
+        z = self.reparameterize(mu, logvar)
+        x_prime = self.decoder(z)
+
+        self.temperature *= self.temp_decay
+
+        return {'z': z, 'x_prime': x_prime, 'x': x, 'mu': mu, 'logvar': logvar,
+                'env_mu': env_mu}
 
 
 @register.setmodelname('env_prior_VAE')

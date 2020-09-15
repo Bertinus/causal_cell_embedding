@@ -1,54 +1,103 @@
-from ai.causalcell.models.utils import *
 import ai.causalcell.utils.register as register
+from ai.causalcell.models.utils import *
+from ai.causalcell.models.autoencoder import AutoEncoder
+import ai.causalcell.utils.configuration as configuration
 import torch
-from ai.causalcell.models.env_prior_models import EnvironmentPriorVariationalAutoEncoder
+import torch.optim.adam
 
 
-@register.setmodelname('adv_VAE')
-class AdversarialVariationalAutoEncoder(EnvironmentPriorVariationalAutoEncoder):
+@register.setmodelname('adv_AE')
+class AdversarialAutoEncoder(AutoEncoder):
     """
-    VAE with an adversarial setting
+    Adversarial Autoencoder
     """
 
-    def __init__(self, enc_layers, dec_layers, aux_layers, adv_layers, beta=1, dropout=0, norm='none', softmax=True,
-                 temperature=1):
-        super(AdversarialVariationalAutoEncoder, self).__init__(enc_layers, dec_layers, aux_layers, beta=beta,
-                                                                dropout=dropout, norm=norm, softmax=softmax,
-                                                                temperature=temperature)
+    def __init__(self, enc_layers, dec_layers, disc_layers, optimizer_params, dropout=0, norm='none'):
+        super(AdversarialAutoEncoder, self).__init__(enc_layers, dec_layers, optimizer_params,
+                                                     dropout=dropout, norm=norm)
 
-        self.adversarial_net = LinearLayers(layers=adv_layers, dropout=dropout, norm=norm, activate_final=False)
+        self.discriminator = LinearLayers(layers=disc_layers, dropout=dropout, norm=norm, activate_final=False)
 
-    def forward(self, x, fingerprint, compound=0, line=0):
-        mu, logvar = self.embed(torch.cat((x, fingerprint), dim=1))
-        env_mu = self.env_prior_mu(fingerprint)
-        env_logvar = self.env_prior_logvar(fingerprint)
-        # Make mu sparse
-        alpha_mu = self.softmax(1 / self.temperature * torch.abs(env_mu))
-        env_mu = alpha_mu * env_mu
-        # Make logvar sparse
-        alpha_var = self.softmax(1 / self.temperature * torch.abs(env_logvar))
-        env_logvar = alpha_var * env_logvar
-        z = self.reparameterize(mu, logvar)
+        # Define two additional optimizers
+        self.disc_optimizer = configuration.setup_optimizer(optimizer_params['disc_optimizer'])\
+            (self.discriminator.parameters())
+        self.gen_optimizer = configuration.setup_optimizer(optimizer_params['gen_optimizer'])\
+            (self.encoder.parameters())
+
+        self.disc_criterion = torch.nn.BCELoss()
+
+    def embed(self, x):
+        return self.encoder(x)
+
+    def forward(self, x, fingerprint=0, compound=0, line=0):
+        z = self.embed(x)
         x_prime = self.decoder(z)
-        # Adversarial
-        predicted_env = self.adversarial_net(z)
+        return {'z': z, 'x_prime': x_prime, 'x': x}
 
-        return {'z': z, 'x_prime': x_prime, 'x': x, 'mu': mu, 'logvar': logvar,
-                'env_mu': env_mu, 'env_logvar': env_logvar,
-                'fingerprint': fingerprint, 'predicted_env': predicted_env}
+    def sample(self, shape, device):
+        return torch.randn(shape).to(device)
+
+    def forward_backward_update(self, x, fingerprint=0, compound=0, line=0, device='cpu'):
+        ################################################################################################################
+        # Train AutoEncoder
+        ################################################################################################################
+
+        outputs = self.forward(x, fingerprint, compound, line)
+        losses = self.loss(outputs)
+
+        loss = sum(losses.values())
+
+        self.rec_optimizer.zero_grad()
+        loss.backward(retain_graph=True)
+        self.rec_optimizer.step()
+
+        ################################################################################################################
+        # Train Discriminator + Encoder to fool Discriminator
+        ################################################################################################################
+
+        fake_z = self.sample(outputs['z'].shape, device)
+        disc_pred = torch.sigmoid(self.discriminator(torch.cat((outputs['z'], fake_z))))
+        disc_losses = self.disc_loss(disc_pred, device)
+
+        disc_loss = sum(disc_losses.values())
+
+        self.gen_optimizer.zero_grad()
+        self.disc_optimizer.zero_grad()
+        disc_loss.backward()
+        self.disc_optimizer.step()
+
+        # Invert gradients for encoder
+        for group in self.gen_optimizer.param_groups:
+            for p in group['params']:
+                p.grad = -1 * p.grad
+
+        self.gen_optimizer.step()
+
+        losses.update(disc_losses)
+
+        return loss + disc_loss, losses
+
+    def forward_loss(self, x, fingerprint=0, compound=0, line=0, device='cpu'):
+        outputs = self.forward(x, fingerprint, compound, line)
+        losses = self.loss(outputs)
+        loss = sum(losses.values())
+
+        fake_z = self.sample(outputs['z'].shape, device)
+        disc_pred = torch.sigmoid(self.discriminator(torch.cat((outputs['z'], fake_z))))
+        disc_losses = self.disc_loss(disc_pred, device)
+        disc_loss = sum(disc_losses.values())
+
+        losses.update(disc_losses)
+
+        return loss + disc_loss, losses
 
     def loss(self, outputs):
         recon_loss = self.criterion(outputs['x_prime'], outputs['x'])
+        return {'recon_loss': recon_loss}
 
-        # The KL div is computed wrt the environment specific prior
-        kl_div = - 0.5 * torch.sum(1 - outputs['env_logvar'] + outputs['logvar']
-                                   - 1 / (outputs['env_logvar'].exp()) * (outputs['mu'] - outputs['env_mu']).pow(2)
-                                   - outputs['logvar'].exp() / outputs['env_logvar'].exp())
+    def disc_loss(self, disc_pred, device):
+        batch_size = int(disc_pred.shape[0]/2)
+        labels = torch.Tensor([[1] * batch_size + [0] * batch_size]).T.to(device)
+        disc_loss = self.disc_criterion(disc_pred, labels)
 
-        # Apply beta scaling factor
-        kl_div *= self.beta
-
-        # Adversarial loss
-        adv_loss = self.criterion(outputs['predicted_env'], outputs['fingerprint'])
-
-        return {'recon_loss': recon_loss, 'kl_div': kl_div}
+        return {'disc_loss': disc_loss}
